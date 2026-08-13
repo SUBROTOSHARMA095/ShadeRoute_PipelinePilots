@@ -1,0 +1,14 @@
+{
+  "version": 8,
+  "name": "S18 Campus Base",
+  "sources": {},
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#eef1f3"
+      }
+    }
+  ]
+}
