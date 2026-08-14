@@ -5,4 +5,4 @@ const app = express();
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-module.export = app;
+module.exports = app;
