@@ -1,22 +1,25 @@
 {
   "version": 2,
+  "cleanUrls": true,
   "builds": [
     {
-      "src": "index.js",
+      "src": "server.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "index.js"
-    },
-    {
-      "handle": "filesystem"
+      "dest": "server.js"
     },
     {
       "src": "/(.*)",
-      "dest": "index.js"
+      "dest": "/public/$1",
+      "check": true
+    },
+    {
+      "src": "/(.*)",
+      "dest": "server.js"
     }
   ]
 }
