@@ -1,14 +1,23 @@
 {
   "version": 8,
   "name": "S18 Campus Base",
-  "sources": {},
+
+  "sources": {
+    "osm": {
+      "type": "raster",
+      "tiles": [
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "attribution": "© OpenStreetMap contributors"
+    }
+  },
+
   "layers": [
     {
-      "id": "background",
-      "type": "background",
-      "paint": {
-        "background-color": "#eef1f3"
-      }
+      "id": "osm",
+      "type": "raster",
+      "source": "osm"
     }
   ]
 }

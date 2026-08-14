@@ -22,7 +22,7 @@ map.on('load', () => {
                 source: 'campus-data',
                 paint: {
                     'fill-color': '#2f80ed',
-                    'fill-opacity': 0.2
+                    'fill-opacity': 100
                 }
             });
 
@@ -30,11 +30,17 @@ map.on('load', () => {
                 id: 'campus-outline',
                 type: 'line',
                 source: 'campus-data',
+                filter: [
+                    '==',
+                    ['get', 'name'],
+                    'SOA ITER CAMPUS 1'
+                ],
                 paint: {
                     'line-color': '#2f80ed',
-                    'line-width': 3
+                    'line-width': 0
                 }
             });
+
             const bounds = new maplibregl.LngLatBounds();
             data.features.forEach(feature => {
 
@@ -42,8 +48,12 @@ map.on('load', () => {
                     bounds.extend(coordinate);
                 });
             });
+            console.log("Bounds:", bounds.toArray());
+
             map.fitBounds(bounds, {
                 padding: 50
             });
+
+            map.setMaxBounds(bounds);
         });
 });
