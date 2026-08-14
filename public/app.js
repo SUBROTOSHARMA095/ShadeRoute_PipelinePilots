@@ -22,7 +22,7 @@ map.on('load', () => {
                 source: 'campus-data',
                 paint: {
                     'fill-color': '#2f80ed',
-                    'fill-opacity': 100
+                    'fill-opacity': 0
                 }
             });
 
@@ -56,6 +56,27 @@ map.on('load', () => {
 
             map.setMaxBounds(bounds);
         });
+
+    fetch('/data/vegetation.geojson')
+    .then(response => response.json())
+    .then(data => {
+
+        map.addSource('vegetation-data', {
+            type: 'geojson',
+            data: data
+        });
+
+        map.addLayer({
+            id: 'vegetation-fill',
+            type: 'fill',
+            source: 'vegetation-data',
+            paint: {
+                'fill-color': '#22c55e',
+                'fill-opacity': 0.35
+            }
+        });
+
+    });
 });
 /*
     S18 - ShadeRoute
