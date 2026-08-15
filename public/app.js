@@ -77,6 +77,39 @@ map.on('load', () => {
         });
 
     });
+
+    fetch('/data/missingBuildings.geojson')
+    .then(response => response.json())
+    .then(data => {
+
+        map.addSource('buildings', {
+            type: 'geojson',
+            data: data
+        });
+
+        // Building fill
+        map.addLayer({
+            id: 'buildings-fill',
+            type: 'fill',
+            source: 'buildings',
+            paint: {
+                'fill-color': '#d9d0c9',
+                'fill-opacity': 0.75
+            }
+        });
+
+        // Building outline
+        map.addLayer({
+            id: 'buildings-outline',
+            type: 'line',
+            source: 'buildings',
+            paint: {
+                'line-color': '#cabeb1',
+                'line-width': 1
+            }
+        });
+
+    });
 });
 /*
     S18 - ShadeRoute
