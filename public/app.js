@@ -220,6 +220,10 @@ mapLocationButton.addEventListener("click", function () {
 
 const originInput = document.getElementById("originInput");
 const destinationInput = document.getElementById("destinationInput");
+const suggestionTitle = document.getElementById("suggestionTitle");
+const suggestionText = document.getElementById("suggestionText");
+const suggestionTags = document.getElementById("suggestionTags");
+const suggestionAction = document.getElementById("suggestionAction");
 
 const fieldActions = document.querySelectorAll(".field-action");
 
@@ -256,7 +260,12 @@ fieldActions[1].addEventListener("click", function () {
         return;
     }
 
+    updateLocalitySuggestion(destination);
     showMessage("Destination selected: " + destination);
+});
+
+destinationInput.addEventListener("input", function () {
+    updateLocalitySuggestion(destinationInput.value.trim());
 });
 
 
@@ -320,6 +329,8 @@ findRouteButton.addEventListener("click", function () {
 
         updateExposureScore();
 
+        updateLocalitySuggestion(destination, true);
+
         showMessage("Safer route found");
 
     }, 800);
@@ -327,7 +338,99 @@ findRouteButton.addEventListener("click", function () {
 
 
 // ===============================
-// 8. MAP LAYERS
+// 8. LOCALITY GREENING SUGGESTIONS
+// ===============================
+
+function getLocalitySuggestion(locality, routeCalculated) {
+
+    const place = locality || "this locality";
+    const normalizedPlace = place.toLowerCase();
+
+    let recommendation = {
+        title: "Create a cooler walking corridor",
+        text: "Plant native shade trees along sunny footpaths and around bus stops. Prioritize continuous canopy where people walk during the hottest part of the day.",
+        tags: ["Native trees", "Footpaths", "Bus stops"],
+        action: "View planting priority"
+    };
+
+    if (normalizedPlace.includes("market") || normalizedPlace.includes("bazaar")) {
+        recommendation = {
+            title: "Cool the market streets",
+            text: "Add shade trees at market edges, loading areas and pedestrian queues. Combine tree pits with permeable paving so rainwater can support the new canopy.",
+            tags: ["Street trees", "Rainwater", "Pedestrian shade"],
+            action: "View market greening idea"
+        };
+    } else if (normalizedPlace.includes("school") || normalizedPlace.includes("college") || normalizedPlace.includes("campus")) {
+        recommendation = {
+            title: "Build a campus shade network",
+            text: "Plant native trees along the busiest walkways, cycle stands and play areas. This can make daily student routes cooler and more comfortable.",
+            tags: ["Campus canopy", "Walkways", "Native species"],
+            action: "View campus planting idea"
+        };
+    } else if (normalizedPlace.includes("hospital") || normalizedPlace.includes("clinic")) {
+        recommendation = {
+            title: "Protect heat-sensitive visitors",
+            text: "Prioritize shaded waiting areas, entrances and walking paths with low-maintenance native trees and seating beneath the canopy.",
+            tags: ["Visitor comfort", "Entrances", "Shade trees"],
+            action: "View hospital greening idea"
+        };
+    } else if (normalizedPlace.includes("hostel") || normalizedPlace.includes("residential") || normalizedPlace.includes("colony")) {
+        recommendation = {
+            title: "Grow a cooler neighbourhood canopy",
+            text: "Plant native trees beside internal roads, play spaces and shared parking areas. Start with locations that have little shade during afternoon hours.",
+            tags: ["Neighbourhood trees", "Play areas", "Afternoon shade"],
+            action: "View neighbourhood planting idea"
+        };
+    }
+
+    if (routeCalculated) {
+        recommendation.text += " This suggestion is based on the destination selected for your route: " + place + ".";
+    }
+
+    return recommendation;
+}
+
+function updateLocalitySuggestion(locality, routeCalculated) {
+
+    if (!locality) {
+        suggestionTitle.textContent = "Greener streets start here.";
+        suggestionText.textContent = "Enter a destination to see a practical tree-planting and heat-reduction idea for that locality.";
+        suggestionTags.innerHTML = "<span>Choose a locality</span>";
+        suggestionAction.textContent = "Enter a destination";
+        suggestionAction.disabled = true;
+        return;
+    }
+
+    const recommendation = getLocalitySuggestion(locality, routeCalculated);
+
+    suggestionTitle.textContent = recommendation.title;
+    suggestionText.textContent = recommendation.text;
+    suggestionTags.innerHTML = recommendation.tags.map(function (tag) {
+        return "<span>" + tag + "</span>";
+    }).join("");
+    suggestionAction.textContent = recommendation.action;
+    suggestionAction.disabled = false;
+    suggestionAction.dataset.locality = locality;
+}
+
+suggestionAction.addEventListener("click", function () {
+    if (!suggestionAction.dataset.locality) {
+        return;
+    }
+
+    const shadeToggle = layerToggles[2];
+
+    if (!shadeToggle.checked) {
+        shadeToggle.checked = true;
+        addMapLayer(2);
+    }
+
+    showMessage("Shade planting priority highlighted for " + suggestionAction.dataset.locality);
+});
+
+
+// ===============================
+// 9. MAP LAYERS
 // ===============================
 
 const layerToggles =
