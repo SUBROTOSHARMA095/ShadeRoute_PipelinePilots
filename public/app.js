@@ -110,6 +110,38 @@ map.on('load', () => {
         });
 
     });
+
+    fetch('/data/roads.geojson')
+    .then(response => response.json())
+    .then(data => {
+        map.addSource("roads", {
+            type: "geojson",
+            data: "/data/roads.geojson"
+        });
+        map.addLayer({
+            id: "roads-layer",
+            type: "line",
+            source: "roads",
+            filter: ["==", ["get", "type"], "road"],
+            paint: {
+                "line-color": "#444444",
+                "line-width": 3,
+                "line-opacity": 0.9
+            }
+        });
+        map.addLayer({
+            id: "paths-layer",
+            type: "line",
+            source: "roads",
+            filter: ["==", ["get", "type"], "path"],
+            paint: {
+                "line-color": "#777777",
+                "line-width": 2,
+                "line-dasharray": [2, 2],
+                "line-opacity": 0.9
+            }
+        });
+    });
 });
 /*
     S18 - ShadeRoute
