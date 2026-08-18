@@ -120,20 +120,6 @@ body{
     font-size:22px;
     color:var(--muted)
 }
-.mode-button{
-    border:1px solid transparent;
-    background:rgba(9,20,17,.55);
-    color:var(--muted);
-    padding:9px 15px;
-    border-radius:9px;
-    font:inherit;
-    font-size:11px
-}
-.mode-button.active{
-    color:var(--text);
-    background:rgba(17,39,32,.9);
-    border-color:var(--border)
-}
 .map-location-pill{
     position:absolute;
     z-index:10;
@@ -177,6 +163,25 @@ body{
     color:var(--text);
     background:transparent;
     font-size:18px
+}
+.compass-control{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    font-size:11px;
+    font-weight:800
+}
+.compass-arrow{
+    display:inline-block;
+    color:var(--accent);
+    font-size:15px;
+    line-height:1;
+    transition:transform .2s ease
+}
+.compass-label{
+    color:var(--muted);
+    font-size:8px
 }
 .control-divider{
     height:1px;
@@ -235,58 +240,6 @@ body{
     margin:23px 0;
     background:var(--border)
 }
-.field-label{
-    display:block;
-    margin:0 0 7px 2px;
-    color:var(--muted2);
-    font-size:8px;font-weight:700;
-    letter-spacing:.14em
-}
-.search-field{
-    height:46px;
-    display:flex;
-    align-items:center;
-    padding:0 11px;
-    border:1px solid var(--border);
-    border-radius:10px;
-    background:var(--panel)
-}
-.search-field input{
-    width:100%;
-    border:0;
-    outline:0;
-    background:transparent;
-    color:var(--text);
-    font:inherit;
-    font-size:11px
-}
-.search-field input::placeholder{
-    color:var(--muted2)
-}
-.field-icon{
-    width:22px;
-    flex:0 0 22px;
-    font-size:9px
-}
-.current-icon{
-    color:var(--accent)
-}
-.destination-icon{
-    color:#ff816d
-}
-.field-action{
-    width:25px;
-    height:25px;
-    border:0;
-    border-radius:7px;
-    background:rgba(255,255,255,.04);
-    color:var(--muted)
-}
-.route-line{
-    height:18px;
-    margin-left:17px;
-    border-left:1px dashed #38554b
-}
 .section-heading{
     display:flex;
     align-items:center;
@@ -297,66 +250,7 @@ body{
     color:var(--muted2);
     font-size:8px
 }
-.route-options{
-    display:flex;
-    flex-direction:column;
-    gap:7px
-}
-.route-option{
-    width:100%;
-    display:flex;
-    align-items:center;
-    gap:11px;padding:11px;
-    border:1px solid var(--border);
-    border-radius:10px;
-    background:rgba(255,255,255,.015);
-    color:var(--text);
-    text-align:left
-}
-.route-option.selected{
-    border-color:rgba(98,229,160,.32);
-    background:rgba(98,229,160,.055)
-}
-.option-radio{
-    width:13px;
-    height:13px;
-    flex:0 0 13px;
-    border:1px solid #526b61;
-    border-radius:50%
-}
-.selected .option-radio{
-    border:4px solid var(--accent)
-}
-.option-content strong,.option-content span{
-    display:block
-}
-.option-content strong{
-    font-size:10px
-}
-.option-content span{
-    margin-top:3px;
-    color:var(--muted);
-    font-size:8px
-}
-.primary-button{
-    width:100%;
-    height:45px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    margin-top:12px;
-    padding:0 14px;
-    border:0;
-    border-radius:10px;
-    background:var(--accent);
-    color:#06100d;
-    font:inherit;
-    font-size:10px;
-    font-weight:800
-}
-.primary-button span{
-    font-size:17px
-}.layer-list{
+.layer-list{
     display:flex;
     flex-direction:column;gap:5px
 }
@@ -394,12 +288,6 @@ body{
 }
 .aqi{
     background:#bd7cff
-}
-.shade{
-    background:#5ee5a0
-}
-.traffic{
-    background:#e5c85e
 }
 .toggle{
     display:none
@@ -461,7 +349,7 @@ body{
 }
 .suggestion-card{
     margin:0 0 23px;
-    padding:14px;
+    padding:18px;
     border:1px solid rgba(98,229,160,.24);
     border-radius:12px;
     background:linear-gradient(135deg,rgba(37,106,72,.28),rgba(11,24,21,.94));
@@ -475,7 +363,7 @@ body{
 }
 .suggestion-header h2{
     margin:6px 0 0;
-    font-size:14px;
+    font-size:16px;
     letter-spacing:-.025em
 }
 .suggestion-icon{
@@ -489,9 +377,9 @@ body{
     font-size:16px
 }
 .suggestion-card p{
-    margin:9px 0 0;
+    margin:11px 0 0;
     color:var(--muted);
-    font-size:9px;
+    font-size:10px;
     line-height:1.55
 }
 .suggestion-tags{
@@ -525,36 +413,12 @@ body{
     cursor:not-allowed;
     opacity:.55
 }
-.exposure-card{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    margin-top:5px;
-    padding:14px;
-    border:1px solid rgba(98,229,160,.12);
-    border-radius:11px;
-    background:linear-gradient(135deg,rgba(98,229,160,.07),rgba(98,229,160,.015))
-}
-.exposure-card p{
-    max-width:225px;
-    margin:6px 0 0;
-    color:var(--muted);
-    font-size:8px;line-height:1.5
-}
-.score-placeholder{
-    font-size:25px;
-    font-weight:800;
-    color:var(--accent)
-}
 @media(max-width:700px){
     .sidebar{
         width:min(370px,88vw)
     }
     .topbar{
         padding:0 13px
-    }
-    .topbar-right{
-        display:none
     }
     .map-controls{
         right:13px

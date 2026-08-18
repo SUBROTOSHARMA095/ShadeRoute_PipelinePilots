@@ -5,6 +5,11 @@ const map = new maplibregl.Map({
     zoom: 15,*/
 });
 
+let priorityData = [];
+let treeRecommendationData = [];
+let selectedGridCell = null;
+let gridVisible = true;
+
 map.on('load', () => {
 
     fetch('/data/campus.geojson')
@@ -78,6 +83,48 @@ map.on('load', () => {
 
     });
 
+    // ============================================================
+    // VEGETATION PRIORITY GRID
+    // ============================================================
+
+    Promise.all([
+        fetch('/data/SOA_ITER_10m_Planting_Priority_2026.csv')
+            .then(response => response.text()),
+
+        fetch('/data/tree_recommendations_250_2026.csv')
+            .then(response => response.text())
+    ])
+    .then(([priorityCSV, treeCSV]) => {
+
+        priorityData = parseCSV(priorityCSV);
+        treeRecommendationData = parseCSV(treeCSV);
+
+        console.log(
+            "Priority cells:",
+            priorityData.length
+        );
+
+        console.log(
+            "Tree recommendations:",
+            treeRecommendationData.length
+        );
+
+        addPriorityGrid();
+
+        addGridClickInteraction();
+
+        createTreeScenarioControl();
+
+    })
+    .catch(error => {
+
+        console.error(
+            "Could not load ML grid data:",
+            error
+        );
+
+    });
+
     fetch('/data/missingBuildings.geojson')
     .then(response => response.json())
     .then(data => {
@@ -110,39 +157,43 @@ map.on('load', () => {
         });
 
     });
-
-    fetch('/data/roads.geojson')
-    .then(response => response.json())
-    .then(data => {
-        map.addSource("roads", {
-            type: "geojson",
-            data: "/data/roads.geojson"
-        });
-        map.addLayer({
-            id: "roads-layer",
-            type: "line",
-            source: "roads",
-            filter: ["==", ["get", "type"], "road"],
-            paint: {
-                "line-color": "#444444",
-                "line-width": 3,
-                "line-opacity": 0.9
-            }
-        });
-        map.addLayer({
-            id: "paths-layer",
-            type: "line",
-            source: "roads",
-            filter: ["==", ["get", "type"], "path"],
-            paint: {
-                "line-color": "#777777",
-                "line-width": 2,
-                "line-dasharray": [2, 2],
-                "line-opacity": 0.9
-            }
-        });
-    });
 });
+
+// ============================================================
+// CSV PARSER
+// ============================================================
+
+function parseCSV(text) {
+
+    const lines = text
+        .trim()
+        .split(/\r?\n/);
+
+    const headers = lines[0]
+        .split(',')
+        .map(header => header.trim());
+
+    return lines
+        .slice(1)
+        .map(line => {
+
+            const values = line.split(',');
+
+            const row = {};
+
+            headers.forEach((header, index) => {
+
+                row[header] =
+                    values[index];
+
+            });
+
+            return row;
+
+        });
+
+}
+
 /*
     S18 - ShadeRoute
     Application Logic
@@ -164,305 +215,49 @@ closeBtn.addEventListener("click", function () {
 });
 
 // ===============================
-// 2. EXPLORE / AUTHORITY MODE
-// ===============================
-
-const modeButtons = document.querySelectorAll(".mode-button");
-
-modeButtons.forEach(function (button) {
-    button.addEventListener("click", function () {
-
-        modeButtons.forEach(function (btn) {
-            btn.classList.remove("active");
-        });
-
-        button.classList.add("active");
-
-        if (button.textContent.trim() === "Authority") {
-            showMessage("Authority mode selected");
-        } else {
-            showMessage("Explore mode selected");
-        }
-    });
-});
-
-
-// ===============================
-// 3. MAP ZOOM CONTROLS
+// 2. MAP ZOOM CONTROLS
 // ===============================
 
 const mapControls = document.querySelectorAll(".map-control");
-
-let mapZoom = 13;
+const northButton = document.getElementById("northButton");
+const compassArrow = document.getElementById("compassArrow");
 
 mapControls[0].addEventListener("click", function () {
-    mapZoom++;
-    showMessage("Zoom: " + mapZoom);
+    map.zoomIn();
+    showMessage("Zoom: " + Math.round(map.getZoom()));
 });
 
 mapControls[1].addEventListener("click", function () {
-    mapZoom--;
-
-    if (mapZoom < 1) {
-        mapZoom = 1;
-    }
-
-    showMessage("Zoom: " + mapZoom);
+    map.zoomOut();
+    showMessage("Zoom: " + Math.round(map.getZoom()));
 });
 
 
 // ===============================
-// 4. CURRENT LOCATION BUTTON
+// 3. NORTH COMPASS
 // ===============================
 
-const mapLocationButton = mapControls[2];
+const mapLocationButton = northButton;
 
 mapLocationButton.addEventListener("click", function () {
+    map.resetNorth();
+    showMessage("Map reset to north");
+});
 
-    if (!navigator.geolocation) {
-        showMessage("Location is not supported by this browser");
-        return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-        function (position) {
-
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-
-            showMessage(
-                "Location found: " +
-                lat.toFixed(4) +
-                ", " +
-                lng.toFixed(4)
-            );
-
-            originInput.value = "Current location";
-        },
-        function () {
-            showMessage("Unable to access your location");
-        }
-    );
+map.on("rotate", function () {
+    compassArrow.style.transform = "rotate(" + (-map.getBearing()) + "deg)";
 });
 
 
-// ===============================
-// 5. FROM / TO INPUTS
-// ===============================
-
-const originInput = document.getElementById("originInput");
-const destinationInput = document.getElementById("destinationInput");
-const suggestionTitle = document.getElementById("suggestionTitle");
-const suggestionText = document.getElementById("suggestionText");
-const suggestionTags = document.getElementById("suggestionTags");
 const suggestionAction = document.getElementById("suggestionAction");
 
-const fieldActions = document.querySelectorAll(".field-action");
-
-
-// FROM location button
-fieldActions[0].addEventListener("click", function () {
-
-    if (!navigator.geolocation) {
-        originInput.value = "Current location";
-        return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-        function () {
-            originInput.value = "Current location";
-            showMessage("Current location selected");
-        },
-        function () {
-            originInput.value = "Current location";
-            showMessage("Using current location");
-        }
-    );
-});
-
-
-// Destination search button
-fieldActions[1].addEventListener("click", function () {
-
-    const destination = destinationInput.value.trim();
-
-    if (destination === "") {
-        showMessage("Enter a destination first");
-        destinationInput.focus();
-        return;
-    }
-
-    updateLocalitySuggestion(destination);
-    showMessage("Destination selected: " + destination);
-});
-
-destinationInput.addEventListener("input", function () {
-    updateLocalitySuggestion(destinationInput.value.trim());
-});
-
-
-// ===============================
-// 6. ROUTE PRIORITY
-// ===============================
-
-const routeOptions = document.querySelectorAll(".route-option");
-
-let selectedPriority = "Balanced";
-
-routeOptions.forEach(function (option) {
-
-    option.addEventListener("click", function () {
-
-        routeOptions.forEach(function (item) {
-            item.classList.remove("selected");
-        });
-
-        option.classList.add("selected");
-
-        selectedPriority =
-            option.querySelector("strong").textContent;
-
-        showMessage(
-            "Route priority: " + selectedPriority
-        );
-    });
-});
-
-
-// ===============================
-// 7. FIND SAFER ROUTE
-// ===============================
-
-const findRouteButton =
-    document.getElementById("findRouteButton");
-
-findRouteButton.addEventListener("click", function () {
-
-    const destination =
-        destinationInput.value.trim();
-
-    if (destination === "") {
-        showMessage("Please enter a destination");
-        destinationInput.focus();
-        return;
-    }
-
-    showMessage(
-        "Finding " +
-        selectedPriority.toLowerCase() +
-        " route..."
-    );
-
-    setTimeout(function () {
-
-        showRoute();
-
-        updateConditions();
-
-        updateExposureScore();
-
-        updateLocalitySuggestion(destination, true);
-
-        showMessage("Safer route found");
-
-    }, 800);
-});
-
-
-// ===============================
-// 8. LOCALITY GREENING SUGGESTIONS
-// ===============================
-
-function getLocalitySuggestion(locality, routeCalculated) {
-
-    const place = locality || "this locality";
-    const normalizedPlace = place.toLowerCase();
-
-    let recommendation = {
-        title: "Create a cooler walking corridor",
-        text: "Plant native shade trees along sunny footpaths and around bus stops. Prioritize continuous canopy where people walk during the hottest part of the day.",
-        tags: ["Native trees", "Footpaths", "Bus stops"],
-        action: "View planting priority"
-    };
-
-    if (normalizedPlace.includes("market") || normalizedPlace.includes("bazaar")) {
-        recommendation = {
-            title: "Cool the market streets",
-            text: "Add shade trees at market edges, loading areas and pedestrian queues. Combine tree pits with permeable paving so rainwater can support the new canopy.",
-            tags: ["Street trees", "Rainwater", "Pedestrian shade"],
-            action: "View market greening idea"
-        };
-    } else if (normalizedPlace.includes("school") || normalizedPlace.includes("college") || normalizedPlace.includes("campus")) {
-        recommendation = {
-            title: "Build a campus shade network",
-            text: "Plant native trees along the busiest walkways, cycle stands and play areas. This can make daily student routes cooler and more comfortable.",
-            tags: ["Campus canopy", "Walkways", "Native species"],
-            action: "View campus planting idea"
-        };
-    } else if (normalizedPlace.includes("hospital") || normalizedPlace.includes("clinic")) {
-        recommendation = {
-            title: "Protect heat-sensitive visitors",
-            text: "Prioritize shaded waiting areas, entrances and walking paths with low-maintenance native trees and seating beneath the canopy.",
-            tags: ["Visitor comfort", "Entrances", "Shade trees"],
-            action: "View hospital greening idea"
-        };
-    } else if (normalizedPlace.includes("hostel") || normalizedPlace.includes("residential") || normalizedPlace.includes("colony")) {
-        recommendation = {
-            title: "Grow a cooler neighbourhood canopy",
-            text: "Plant native trees beside internal roads, play spaces and shared parking areas. Start with locations that have little shade during afternoon hours.",
-            tags: ["Neighbourhood trees", "Play areas", "Afternoon shade"],
-            action: "View neighbourhood planting idea"
-        };
-    }
-
-    if (routeCalculated) {
-        recommendation.text += " This suggestion is based on the destination selected for your route: " + place + ".";
-    }
-
-    return recommendation;
-}
-
-function updateLocalitySuggestion(locality, routeCalculated) {
-
-    if (!locality) {
-        suggestionTitle.textContent = "Greener streets start here.";
-        suggestionText.textContent = "Enter a destination to see a practical tree-planting and heat-reduction idea for that locality.";
-        suggestionTags.innerHTML = "<span>Choose a locality</span>";
-        suggestionAction.textContent = "Enter a destination";
-        suggestionAction.disabled = true;
-        return;
-    }
-
-    const recommendation = getLocalitySuggestion(locality, routeCalculated);
-
-    suggestionTitle.textContent = recommendation.title;
-    suggestionText.textContent = recommendation.text;
-    suggestionTags.innerHTML = recommendation.tags.map(function (tag) {
-        return "<span>" + tag + "</span>";
-    }).join("");
-    suggestionAction.textContent = recommendation.action;
-    suggestionAction.disabled = false;
-    suggestionAction.dataset.locality = locality;
-}
-
 suggestionAction.addEventListener("click", function () {
-    if (!suggestionAction.dataset.locality) {
-        return;
-    }
-
-    const shadeToggle = layerToggles[2];
-
-    if (!shadeToggle.checked) {
-        shadeToggle.checked = true;
-        addMapLayer(2);
-    }
-
-    showMessage("Shade planting priority highlighted for " + suggestionAction.dataset.locality);
+    showMessage("Prioritize native trees near busy walking areas and public spaces");
 });
 
 
 // ===============================
-// 9. MAP LAYERS
+// 4. MAP LAYERS
 // ===============================
 
 const layerToggles =
@@ -470,9 +265,7 @@ const layerToggles =
 
 const layerNames = [
     "Heat exposure",
-    "Air quality",
-    "Shade availability",
-    "Traffic"
+    "Air quality"
 ];
 
 layerToggles.forEach(function (toggle, index) {
@@ -500,7 +293,7 @@ layerToggles.forEach(function (toggle, index) {
 
 
 // ===============================
-// 9. SIMULATED MAP LAYERS
+// 5. ENVIRONMENT MAP OVERLAYS
 // ===============================
 
 function addMapLayer(index) {
@@ -536,14 +329,6 @@ function addMapLayer(index) {
         layer.style.background = "#b36bff";
     }
 
-    if (index === 2) {
-        layer.style.background = "#45e58a";
-    }
-
-    if (index === 3) {
-        layer.style.background = "#e5c85e";
-    }
-
     map.appendChild(layer);
 }
 
@@ -561,46 +346,7 @@ function removeMapLayer(index) {
 
 
 // ===============================
-// 10. SIMULATED ROUTE
-// ===============================
-
-function showRoute() {
-
-    const map = document.getElementById("map");
-
-    let route = document.getElementById(
-        "simulatedRoute"
-    );
-
-    if (route) {
-        route.remove();
-    }
-
-    route = document.createElement("div");
-
-    route.id = "simulatedRoute";
-
-    route.style.position = "absolute";
-    route.style.left = "28%";
-    route.style.top = "25%";
-    route.style.width = "45%";
-    route.style.height = "45%";
-    route.style.border = "4px solid #62e5a0";
-    route.style.borderTopColor = "transparent";
-    route.style.borderLeftColor = "transparent";
-    route.style.borderRadius = "50%";
-    route.style.transform = "rotate(-25deg)";
-    route.style.boxShadow =
-        "0 0 15px rgba(98,229,160,.6)";
-    route.style.pointerEvents = "none";
-    route.style.zIndex = "5";
-
-    map.appendChild(route);
-}
-
-
-// ===============================
-// 11. CURRENT CONDITIONS
+// 5. CURRENT CONDITIONS
 // ===============================
 
 function updateConditions() {
@@ -633,31 +379,7 @@ function updateConditions() {
 
 
 // ===============================
-// 12. EXPOSURE SCORE
-// ===============================
-
-function updateExposureScore() {
-
-    const scoreElement =
-        document.querySelector(".score-placeholder");
-
-    const exposureText =
-        document.querySelector(".exposure-card p");
-
-    const score =
-        Math.floor(35 + Math.random() * 40);
-
-    scoreElement.textContent = score;
-
-    exposureText.textContent =
-        "Environmental exposure calculated using " +
-        selectedPriority.toLowerCase() +
-        " route priority.";
-}
-
-
-// ===============================
-// 13. MESSAGE / NOTIFICATION
+// 6. MESSAGE / NOTIFICATION
 // ===============================
 
 function showMessage(message) {
@@ -703,4 +425,615 @@ function showMessage(message) {
         setTimeout(function () {
             notification.remove();
         }, 2000);
+}
+
+updateConditions();
+
+// ============================================================
+// ADD PRIORITY GRID
+// ============================================================
+
+function addPriorityGrid() {
+
+    if (map.getSource('priority-grid')) {
+        return;
+    }
+
+    const features =
+        priorityData.map((cell, index) => {
+
+            return {
+                type: 'Feature',
+
+                geometry: {
+                    type: 'Point',
+
+                    coordinates: [
+                        Number(cell.longitude),
+                        Number(cell.latitude)
+                    ]
+                },
+
+                properties: {
+                    index: index,
+
+                    longitude:
+                        Number(cell.longitude),
+
+                    latitude:
+                        Number(cell.latitude),
+
+                    NDVI:
+                        Number(cell.NDVI),
+
+                    NDBI:
+                        Number(cell.NDBI),
+
+                    BSI:
+                        Number(cell.BSI),
+
+                    NDWI:
+                        Number(cell.NDWI),
+
+                    LST:
+                        Number(cell.LST),
+
+                    vegetation_fraction:
+                        Number(
+                            cell.vegetation_fraction
+                        ),
+
+                    priority_score:
+                        Number(
+                            cell.priority_score
+                        ),
+
+                    priority_class:
+                        cell.priority_class,
+
+                    recommendation:
+                        cell.recommendation
+                }
+            };
+
+        });
+
+    map.addSource(
+        'priority-grid',
+        {
+            type: 'geojson',
+
+            data: {
+                type: 'FeatureCollection',
+                features: features
+            }
+        }
+    );
+
+    map.addLayer({
+
+        id: 'priority-grid',
+
+        type: 'circle',
+
+        source: 'priority-grid',
+
+        paint: {
+
+            'circle-radius': 5,
+
+            'circle-color': [
+
+                'interpolate',
+
+                ['linear'],
+
+                ['get', 'priority_score'],
+
+                0,
+                '#22c55e',
+
+                40,
+                '#eab308',
+
+                60,
+                '#f97316',
+
+                80,
+                '#ef4444'
+            ],
+
+            'circle-opacity': 0.45,
+
+            'circle-stroke-width': 0.5,
+
+            'circle-stroke-color':
+                '#ffffff'
+
+        }
+    });
+}
+
+// ============================================================
+// GRID CLICK INTERACTION
+// ============================================================
+
+function addGridClickInteraction() {
+
+    map.on(
+        'click',
+        'priority-grid',
+        function (event) {
+
+            if (
+                !event.features ||
+                !event.features.length
+            ) {
+                return;
+            }
+
+            const cell =
+                event.features[0].properties;
+
+            selectedGridCell = cell;
+
+            showGridInformation(cell);
+
+        }
+    );
+
+
+    map.on(
+        'mouseenter',
+        'priority-grid',
+        function () {
+
+            map.getCanvas()
+                .style.cursor = 'pointer';
+
+        }
+    );
+
+
+    map.on(
+        'mouseleave',
+        'priority-grid',
+        function () {
+
+            map.getCanvas()
+                .style.cursor = '';
+
+        }
+    );
+}
+
+// ============================================================
+// GRID INFORMATION PANEL
+// ============================================================
+
+function showGridInformation(cell) {
+
+    let panel =
+        document.getElementById(
+            'gridInfoPanel'
+        );
+
+    if (!panel) {
+
+        panel =
+            document.createElement('div');
+
+        panel.id =
+            'gridInfoPanel';
+
+        panel.style.position =
+            'fixed';
+
+        panel.style.right =
+            '20px';
+
+        panel.style.top =
+            '20px';
+
+        panel.style.zIndex =
+            '200';
+
+        panel.style.width =
+            '280px';
+
+        panel.style.padding =
+            '18px';
+
+        panel.style.borderRadius =
+            '14px';
+
+        panel.style.background =
+            'rgba(7,17,15,.96)';
+
+        panel.style.border =
+            '1px solid rgba(255,255,255,.12)';
+
+        panel.style.color =
+            '#edf7f2';
+
+        panel.style.fontSize =
+            '12px';
+
+        panel.style.boxShadow =
+            '0 15px 40px rgba(0,0,0,.4)';
+
+        document.body.appendChild(panel);
+    }
+
+    const vegetationPercent =
+        (
+            Number(
+                cell.vegetation_fraction
+            ) * 100
+        ).toFixed(1);
+
+    panel.innerHTML = `
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:12px;
+        ">
+
+            <strong style="font-size:15px;">
+                Grid Cell
+            </strong>
+
+            <button
+                id="closeGridInfo"
+                style="
+                    background:none;
+                    border:none;
+                    color:white;
+                    cursor:pointer;
+                    font-size:18px;
+                "
+            >
+                ×
+            </button>
+
+        </div>
+
+        <div style="margin-bottom:12px;">
+            <strong>
+                Priority:
+                ${Number(cell.priority_score).toFixed(1)}/100
+            </strong>
+
+            <div style="margin-top:4px;">
+                ${cell.priority_class}
+            </div>
+        </div>
+
+        <hr style="
+            border:none;
+            border-top:
+                1px solid rgba(255,255,255,.1);
+        ">
+
+        <div>
+            Vegetation:
+            <strong>${vegetationPercent}%</strong>
+        </div>
+
+        <div>
+            LST:
+            <strong>${Number(cell.LST).toFixed(2)}°C</strong>
+        </div>
+
+        <div>
+            NDVI:
+            <strong>${Number(cell.NDVI).toFixed(3)}</strong>
+        </div>
+
+        <div>
+            NDWI:
+            <strong>${Number(cell.NDWI).toFixed(3)}</strong>
+        </div>
+
+        <div>
+            NDBI:
+            <strong>${Number(cell.NDBI).toFixed(3)}</strong>
+        </div>
+
+        <div>
+            BSI:
+            <strong>${Number(cell.BSI).toFixed(3)}</strong>
+        </div>
+
+        <hr style="
+            border:none;
+            border-top:
+                1px solid rgba(255,255,255,.1);
+        ">
+
+        <div style="
+            line-height:1.5;
+        ">
+            <strong>Recommendation</strong>
+
+            <p>
+                ${cell.recommendation}
+            </p>
+        </div>
+
+    `;
+
+    document
+        .getElementById('closeGridInfo')
+        .addEventListener(
+            'click',
+            function () {
+
+                panel.remove();
+
+            }
+        );
+}
+
+// ============================================================
+// TREE SCENARIO CONTROL
+// ============================================================
+
+function createTreeScenarioControl() {
+
+    const control =
+        document.createElement('div');
+
+    control.id =
+        'treeScenarioControl';
+
+    control.style.position =
+        'fixed';
+
+    control.style.left =
+        '20px';
+
+    control.style.bottom =
+        '25px';
+
+    control.style.zIndex =
+        '200';
+
+    control.style.padding =
+        '15px';
+
+    control.style.width =
+        '220px';
+
+    control.style.borderRadius =
+        '14px';
+
+    control.style.background =
+        'rgba(7,17,15,.96)';
+
+    control.style.color =
+        '#edf7f2';
+
+    control.style.border =
+        '1px solid rgba(255,255,255,.12)';
+
+    control.innerHTML = `
+
+        <div style="
+            font-weight:bold;
+            margin-bottom:8px;
+        ">
+            Tree Planting Scenario
+        </div>
+
+        <div style="
+            font-size:11px;
+            opacity:.7;
+            margin-bottom:8px;
+        ">
+            Number of recommended
+            planting locations
+        </div>
+
+        <input
+            id="treeCount"
+            type="number"
+            min="1"
+            value="250"
+            style="
+                width:100%;
+                box-sizing:border-box;
+                padding:8px;
+                margin-bottom:8px;
+                border-radius:8px;
+                border:1px solid #555;
+            "
+        >
+
+        <button
+            id="recommendTrees"
+            style="
+                width:100%;
+                padding:9px;
+                border:none;
+                border-radius:8px;
+                cursor:pointer;
+            "
+        >
+            Recommend Locations
+        </button>
+
+    `;
+
+    document.body.appendChild(control);
+
+
+    document
+        .getElementById('recommendTrees')
+        .addEventListener(
+            'click',
+            recommendTreeLocations
+        );
+}
+
+
+// ============================================================
+// TREE RECOMMENDATIONS
+// ============================================================
+
+function recommendTreeLocations() {
+
+    const count =
+        parseInt(
+            document.getElementById(
+                'treeCount'
+            ).value
+        );
+
+    if (
+        !count ||
+        count <= 0
+    ) {
+
+        showMessage(
+            'Enter a valid number of trees'
+        );
+
+        return;
+    }
+
+
+    const recommendations =
+        priorityData
+            .slice()
+            .sort(
+                (a, b) =>
+                    Number(
+                        b.priority_score
+                    )
+                    -
+                    Number(
+                        a.priority_score
+                    )
+            )
+            .slice(
+                0,
+                count
+            );
+
+
+    const features =
+        recommendations.map(
+            (cell, index) => {
+
+                return {
+
+                    type: 'Feature',
+
+                    geometry: {
+
+                        type: 'Point',
+
+                        coordinates: [
+                            Number(
+                                cell.longitude
+                            ),
+                            Number(
+                                cell.latitude
+                            )
+                        ]
+
+                    },
+
+                    properties: {
+
+                        planting_rank:
+                            index + 1,
+
+                        priority_score:
+                            Number(
+                                cell.priority_score
+                            )
+
+                    }
+
+                };
+
+            }
+        );
+
+
+    const geojson = {
+
+        type: 'FeatureCollection',
+
+        features: features
+
+    };
+
+
+    if (
+        map.getSource(
+            'tree-recommendations'
+        )
+    ) {
+
+        map.getSource(
+            'tree-recommendations'
+        ).setData(
+            geojson
+        );
+
+    } else {
+
+        map.addSource(
+            'tree-recommendations',
+            {
+                type: 'geojson',
+                data: geojson
+            }
+        );
+
+
+        map.addLayer({
+
+            id:
+                'tree-recommendations',
+
+            type:
+                'circle',
+
+            source:
+                'tree-recommendations',
+
+            paint: {
+
+                'circle-radius':
+                    7,
+
+                'circle-color':
+                    '#00ff88',
+
+                'circle-opacity':
+                    0.9,
+
+                'circle-stroke-color':
+                    '#ffffff',
+
+                'circle-stroke-width':
+                    1.5
+
+            }
+
+        });
+
+    }
+
+
+    showMessage(
+        `${recommendations.length} planting locations recommended`
+    );
+
 }
