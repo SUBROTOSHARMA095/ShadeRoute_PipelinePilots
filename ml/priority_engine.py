@@ -1,8 +1,7 @@
 from pathlib import Path
-
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-
 
 # ============================================================
 # PATHS
@@ -10,28 +9,22 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-DATA_PATH = (
-    PROJECT_ROOT
-    / "data"
-    / "SOA_ITER_ML_10m_Dataset_2026.csv"
-)
+# Updated path to public/data
+DATA_DIR = PROJECT_ROOT / "public" / "data"
+
+DATA_PATH = PROJECT_ROOT / "data" / "SOA_ITER_ML_10m_Dataset_2026.csv"
 
 OUTPUT_DIR = PROJECT_ROOT / "ml" / "outputs"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-OUTPUT_DIR.mkdir(
-    parents=True,
-    exist_ok=True
-)
-
+# GeoJSON layers in public/data/
+infra_path = DATA_DIR / "soa_infrastructure.geojson"
+missing_bldg_path = DATA_DIR / "missingBuildings.geojson"
+paths_path = DATA_DIR / "paths.geojson"
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
-
-# Priority weights.
-#
-# These are a transparent decision-support heuristic,
-# NOT ML-learned causal weights.
 
 WEIGHTS = {
     "heat_stress": 0.30,
@@ -41,457 +34,173 @@ WEIGHTS = {
     "low_moisture": 0.10
 }
 
-
 # ============================================================
 # NORMALIZATION
 # ============================================================
 
 def min_max(series):
-    """
-    Normalize a feature to 0-1.
-    """
-
     minimum = series.min()
     maximum = series.max()
-
     if maximum == minimum:
-        return pd.Series(
-            0.0,
-            index=series.index
-        )
-
-    return (
-        (series - minimum)
-        / (maximum - minimum)
-    )
-
+        return pd.Series(0.0, index=series.index)
+    return (series - minimum) / (maximum - minimum)
 
 # ============================================================
 # LOAD DATA
 # ============================================================
 
 print("=" * 70)
-print("SOA ITER — VEGETATION PRIORITY ENGINE")
+print("SOA ITER — VEGETATION PRIORITY & MIST SPRAYER ENGINE")
 print("=" * 70)
-
-print("\nLoading:")
-print(DATA_PATH)
 
 df = pd.read_csv(DATA_PATH)
 
-print("\nDataset:")
-print(df.shape)
-
-
-# ============================================================
-# REQUIRED COLUMNS
-# ============================================================
-
 required_columns = [
-    "longitude",
-    "latitude",
-    "NDVI",
-    "NDBI",
-    "BSI",
-    "NDWI",
-    "LST",
-    "vegetation_fraction"
+    "longitude", "latitude", "NDVI", "NDBI", 
+    "BSI", "NDWI", "LST", "vegetation_fraction"
 ]
 
-missing = [
-    column
-    for column in required_columns
-    if column not in df.columns
-]
-
+missing = [col for col in required_columns if col not in df.columns]
 if missing:
-
-    raise ValueError(
-        f"Missing required columns: {missing}"
-    )
-
+    raise ValueError(f"Missing required columns: {missing}")
 
 # ============================================================
-# ENVIRONMENTAL INDICATORS
+# ENVIRONMENTAL INDICATORS & SCORING
 # ============================================================
 
-# High LST = higher heat stress
-df["heat_stress"] = min_max(
-    df["LST"]
-)
-
-
-# Low vegetation = higher vegetation deficit
-df["vegetation_deficit"] = (
-    1
-    -
-    df["vegetation_fraction"]
-)
-
-df["vegetation_deficit"] = (
-    df["vegetation_deficit"]
-    .clip(0, 1)
-)
-
-
-# High BSI = more bare surface
-df["bare_soil_score"] = min_max(
-    df["BSI"]
-)
-
-
-# High NDBI = stronger built-up signal
-df["built_up_score"] = min_max(
-    df["NDBI"]
-)
-
-
-# NDWI is generally higher where moisture is greater.
-# Therefore lower NDWI contributes to priority.
-df["low_moisture_score"] = (
-    1
-    -
-    min_max(df["NDWI"])
-)
-
-
-# ============================================================
-# PRIORITY SCORE
-# ============================================================
+df["heat_stress"] = min_max(df["LST"])
+df["vegetation_deficit"] = (1 - df["vegetation_fraction"]).clip(0, 1)
+df["bare_soil_score"] = min_max(df["BSI"])
+df["built_up_score"] = min_max(df["NDBI"])
+df["low_moisture_score"] = 1 - min_max(df["NDWI"])
 
 df["priority_score"] = (
-
-    WEIGHTS["heat_stress"]
-    * df["heat_stress"]
-
-    +
-
-    WEIGHTS["vegetation_deficit"]
-    * df["vegetation_deficit"]
-
-    +
-
-    WEIGHTS["bare_soil"]
-    * df["bare_soil_score"]
-
-    +
-
-    WEIGHTS["built_up"]
-    * df["built_up_score"]
-
-    +
-
-    WEIGHTS["low_moisture"]
-    * df["low_moisture_score"]
-)
-
-
-# Convert to 0-100
-df["priority_score"] = (
-    df["priority_score"]
-    * 100
-)
-
-
-# ============================================================
-# PRIORITY CLASS
-# ============================================================
+    WEIGHTS["heat_stress"] * df["heat_stress"] +
+    WEIGHTS["vegetation_deficit"] * df["vegetation_deficit"] +
+    WEIGHTS["bare_soil"] * df["bare_soil_score"] +
+    WEIGHTS["built_up"] * df["built_up_score"] +
+    WEIGHTS["low_moisture"] * df["low_moisture_score"]
+) * 100
 
 def priority_class(score):
-
-    if score < 20:
-        return "Very Low"
-
-    if score < 40:
-        return "Low"
-
-    if score < 60:
-        return "Moderate"
-
-    if score < 80:
-        return "High"
-
+    if score < 20: return "Very Low"
+    if score < 40: return "Low"
+    if score < 60: return "Moderate"
+    if score < 80: return "High"
     return "Very High"
 
+df["priority_class"] = df["priority_score"].apply(priority_class)
 
-df["priority_class"] = (
-    df["priority_score"]
-    .apply(priority_class)
+# ============================================================
+# SPATIAL FILTERING & INTERVENTION CLASSIFICATION (NEW)
+# ============================================================
+
+print("\nProcessing Spatial Geometry (Filtering Buildings & Paths)...")
+
+# 1. Convert DataFrame to GeoDataFrame
+gdf = gpd.GeoDataFrame(
+    df,
+    geometry=gpd.points_from_xy(df["longitude"], df["latitude"]),
+    crs="EPSG:4326"
 )
 
+# 2. Load Infrastructure, Missing Buildings, and Paths
+# infra_path = PROJECT_ROOT / "data" / "soa_infrastructure.geojson"
+# missing_bldg_path = PROJECT_ROOT / "data" / "missingBuildings.geojson"
+# paths_path = PROJECT_ROOT / "data" / "paths.geojson"
 
-# ============================================================
-# RECOMMENDATION
-# ============================================================
+infra_gdf = gpd.read_file(infra_path) if infra_path.exists() else gpd.GeoDataFrame()
+buildings_gdf = gpd.read_file(missing_bldg_path) if missing_bldg_path.exists() else gpd.GeoDataFrame()
+paths_gdf = gpd.read_file(paths_path)
 
-def recommendation(row):
+# Combine building layers
+all_buildings = None
+if not infra_gdf.empty and not buildings_gdf.empty:
+    all_buildings = infra_gdf.geometry.union(buildings_gdf.geometry.unary_union)
+elif not infra_gdf.empty:
+    all_buildings = infra_gdf.geometry.unary_union
+elif not buildings_gdf.empty:
+    all_buildings = buildings_gdf.geometry.unary_union
 
+# Remove dots inside building polygons
+if all_buildings is not None:
+    initial_count = len(gdf)
+    gdf = gdf[~gdf.geometry.within(all_buildings.unary_union)].copy()
+    print(f"Removed {initial_count - len(gdf)} grid dots overlapping infrastructure.")
+
+# 3. Buffer paths (5 meters) and check point proximity
+paths_projected = paths_gdf.to_crs(epsg=3857)
+paths_buffer = paths_projected.geometry.buffer(5).unary_union  # 5-meter path zone
+
+gdf_projected = gdf.to_crs(epsg=3857)
+gdf["is_path"] = gdf_projected.geometry.within(paths_buffer)
+
+# 4. Assign intervention types and customized recommendations
+def assign_intervention(row):
     score = row["priority_score"]
-
-    vegetation = row["vegetation_fraction"]
-    lst = row["LST"]
-
-    if score >= 80:
-
+    
+    if row["is_path"]:
         return (
-            "Very high priority for tree planting "
-            "or vegetation intervention"
+            "Mist Sprayer",
+            "High heat exposure walking path: Install mist sprayers for pedestrian cooling."
         )
-
-    if score >= 60:
-
+    elif score >= 80:
         return (
-            "High priority for tree planting "
-            "or additional vegetation"
+            "Tree Planting",
+            "Very high priority for tree planting or vegetation canopy implementation."
         )
-
-    if score >= 40:
-
+    elif score >= 60:
         return (
-            "Moderate priority; consider vegetation "
-            "enhancement where feasible"
+            "Tree Planting",
+            "High priority for tree planting or additional vegetation."
         )
-
-    if vegetation >= 0.75:
-
+    elif score >= 40:
         return (
-            "Existing vegetation is already high; "
-            "planting priority is low"
+            "Tree Planting",
+            "Moderate priority; consider vegetation enhancement where feasible."
         )
-
     return (
-        "Low priority for immediate planting"
+        "Tree Planting",
+        "Low priority for immediate planting."
     )
 
+intervention_results = gdf.apply(assign_intervention, axis=1)
+gdf["intervention_type"] = [r[0] for r in intervention_results]
+gdf["recommendation"] = [r[1] for r in intervention_results]
 
-df["recommendation"] = (
-    df.apply(
-        recommendation,
-        axis=1
-    )
-)
-
+# Clean up spatial object back to standard DataFrame
+priority_df = pd.DataFrame(gdf.drop(columns=["geometry", "is_path"])).sort_values("priority_score", ascending=False)
 
 # ============================================================
-# SORTED PRIORITY OUTPUT
+# SAVE OUTPUT DATASETS
 # ============================================================
 
-priority_columns = [
-    "longitude",
-    "latitude",
+OUTPUT_DIR = PROJECT_ROOT / "public" / "data"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    "NDVI",
-    "NDBI",
-    "BSI",
-    "NDWI",
-    "LST",
+priority_path = OUTPUT_DIR / "SOA_ITER_10m_Planting_Priority_2026.csv"
+priority_df.to_csv(priority_path, index=False)
 
-    "vegetation_fraction",
+# Top Tree Recommendations (Non-path points)
+tree_candidates = priority_df[priority_df["intervention_type"] == "Tree Planting"]
+tree_recommendations = tree_candidates.head(250).copy()
+tree_recommendations["planting_rank"] = np.arange(1, len(tree_recommendations) + 1)
+tree_path = OUTPUT_DIR / "tree_recommendations_250_2026.csv"
+tree_recommendations.to_csv(tree_path, index=False)
 
-    "heat_stress",
-    "vegetation_deficit",
-    "bare_soil_score",
-    "built_up_score",
-    "low_moisture_score",
-
-    "priority_score",
-    "priority_class",
-    "recommendation"
-]
-
-priority_df = (
-    df[priority_columns]
-    .sort_values(
-        "priority_score",
-        ascending=False
-    )
-)
-
-
-# ============================================================
-# SAVE PRIORITY MAP DATA
-# ============================================================
-
-priority_path = (
-    OUTPUT_DIR
-    / "SOA_ITER_10m_Planting_Priority_2026.csv"
-)
-
-priority_df.to_csv(
-    priority_path,
-    index=False
-)
-
-
-# ============================================================
-# TREE SCENARIO FUNCTION
-# ============================================================
-
-def recommend_tree_locations(
-    number_of_trees,
-    dataframe=priority_df
-):
-
-    if number_of_trees <= 0:
-
-        raise ValueError(
-            "Number of trees must be greater than zero."
-        )
-
-    number_of_trees = int(
-        number_of_trees
-    )
-
-    # Each selected grid cell represents a
-    # high-priority planting location.
-    number_of_locations = min(
-        number_of_trees,
-        len(dataframe)
-    )
-
-    recommendations = (
-        dataframe
-        .head(number_of_locations)
-        .copy()
-    )
-
-    recommendations[
-        "planting_rank"
-    ] = np.arange(
-        1,
-        len(recommendations) + 1
-    )
-
-    return recommendations
-
-
-# ============================================================
-# DEFAULT SCENARIO
-# ============================================================
-
-DEFAULT_TREES = 250
-
-tree_recommendations = (
-    recommend_tree_locations(
-        DEFAULT_TREES
-    )
-)
-
-tree_path = (
-    OUTPUT_DIR
-    / "tree_recommendations_250_2026.csv"
-)
-
-tree_recommendations.to_csv(
-    tree_path,
-    index=False
-)
-
-
-# ============================================================
-# SUMMARY
-# ============================================================
+# Top Mist Sprayer Recommendations (Path-only points)
+sprayer_candidates = priority_df[priority_df["intervention_type"] == "Mist Sprayer"]
+sprayer_recommendations = sprayer_candidates.head(50).copy()
+sprayer_recommendations["sprayer_rank"] = np.arange(1, len(sprayer_recommendations) + 1)
+sprayer_path = OUTPUT_DIR / "mist_sprayer_recommendations_50_2026.csv"
+sprayer_recommendations.to_csv(sprayer_path, index=False)
 
 print("\n" + "=" * 70)
-print("PRIORITY SUMMARY")
+print("PRIORITY & INTERVENTION SUMMARY")
 print("=" * 70)
-
-print(
-    df[
-        "priority_class"
-    ]
-    .value_counts()
-    .reindex(
-        [
-            "Very High",
-            "High",
-            "Moderate",
-            "Low",
-            "Very Low"
-        ],
-        fill_value=0
-    )
-)
-
-
-print("\nPriority statistics:")
-
-print(
-    df[
-        "priority_score"
-    ]
-    .describe()
-)
-
-
-print("\nTop 10 priority cells:")
-
-print(
-    priority_df[
-        [
-            "longitude",
-            "latitude",
-            "LST",
-            "vegetation_fraction",
-            "priority_score",
-            "priority_class"
-        ]
-    ]
-    .head(10)
-    .to_string(
-        index=False
-    )
-)
-
-
-# ============================================================
-# TREE SCENARIO SUMMARY
-# ============================================================
-
-print("\n" + "=" * 70)
-print("TREE PLANTING SCENARIO")
-print("=" * 70)
-
-print(
-    f"\nRequested trees: {DEFAULT_TREES}"
-)
-
-print(
-    f"Recommended cells: "
-    f"{len(tree_recommendations)}"
-)
-
-print(
-    "\nAverage priority of selected cells:"
-)
-
-print(
-    tree_recommendations[
-        "priority_score"
-    ].mean()
-)
-
-
-# ============================================================
-# OUTPUTS
-# ============================================================
-
-print("\n" + "=" * 70)
-print("OUTPUTS")
-print("=" * 70)
-
-print(
-    "\nPriority dataset:"
-)
-
-print(priority_path)
-
-print(
-    "\n250-tree recommendation:"
-)
-
-print(tree_path)
-
-print(
-    "\nPriority engine complete."
-)
+print(f"Total Valid Grid Cells: {len(priority_df)}")
+print(f"Tree Planting Candidates: {len(tree_candidates)}")
+print(f"Mist Sprayer Path Candidates: {len(sprayer_candidates)}")
+print(f"Saved Priority CSV: {priority_path}")
+print(f"Saved 250 Tree Scenario: {tree_path}")
+print(f"Saved 50 Mist Sprayer Scenario: {sprayer_path}")

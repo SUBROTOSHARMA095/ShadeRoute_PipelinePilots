@@ -83,6 +83,53 @@ map.on('load', () => {
 
     });
 
+    fetch('/data/roads.geojson')
+    .then(response => response.json())
+    .then(data => {
+        map.addSource('roads', {
+            type: 'geojson',
+            data: data
+        });
+
+        map.addLayer({
+            id: 'roads-layer',
+            type: 'line',
+            source: 'roads',
+            paint: {
+                'line-color': '#4A4E69',
+                'line-width': 3,
+                'line-opacity': 0.9
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Error loading roads:', error);
+    });
+
+
+    fetch('/data/paths.geojson')
+    .then(response => response.json())
+    .then(data => {
+        map.addSource('paths', {
+            type: 'geojson',
+            data: data
+        });
+
+        map.addLayer({
+            id: 'paths-layer',
+            type: 'line',
+            source: 'paths',
+            paint: {
+                'line-color': '#A65E2E',
+                'line-width': 2,
+                'line-opacity': 0.9
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Error loading paths:', error);
+    });
+
     // ============================================================
     // VEGETATION PRIORITY GRID
     // ============================================================
