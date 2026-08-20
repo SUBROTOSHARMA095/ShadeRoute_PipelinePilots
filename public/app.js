@@ -6,7 +6,11 @@ let priorityData = [];
 let treeRecommendationData = [];
 let selectedGridCell = null;
 let gridVisible = true;
-let activeComicPopup = null; // Defined globally at top to prevent initialization errors
+let activeComicPopup = null;
+
+// Track active location pointer markers so we can update/clear them
+let treeMarkers = [];
+let mistMarkers = [];
 
 const map = new maplibregl.Map({
     container: 'map',
@@ -59,7 +63,6 @@ map.on('load', () => {
                     bounds.extend(coordinate);
                 });
             });
-            console.log("Bounds:", bounds.toArray());
 
             map.fitBounds(bounds, { padding: 50 });
             map.setMaxBounds(bounds);
@@ -237,6 +240,44 @@ map.on("rotate", function () {
         compassArrow.style.transform = "rotate(" + (-map.getBearing()) + "deg)";
     }
 });
+
+// ============================================================
+// LOCATION PIN CREATOR HELPER
+// ============================================================
+
+function createLocationPin(type) {
+    const el = document.createElement('div');
+    el.className = 'custom-location-pointer';
+    
+    const isTree = type === 'tree';
+    const pinColor = isTree ? '#10b981' : '#00e5ff';
+    const icon = isTree ? '🌳' : '💧';
+    
+    el.innerHTML = `
+        <div style="
+            position: relative;
+            width: 26px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            filter: drop-shadow(0px 3px 6px rgba(0,0,0,0.65));
+            transition: transform 0.2s ease;
+        ">
+            <svg width="26" height="32" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 30 12 30C12 30 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="${pinColor}" stroke="#000000" stroke-width="1.5"/>
+                <circle cx="12" cy="11" r="7.5" fill="#ffffff" stroke="#000000" stroke-width="1"/>
+            </svg>
+            <span style="position: absolute; top: 3px; font-size: 10px;">${icon}</span>
+        </div>
+    `;
+
+    el.addEventListener('mouseenter', () => el.firstElementChild.style.transform = 'scale(1.3)');
+    el.addEventListener('mouseleave', () => el.firstElementChild.style.transform = 'scale(1)');
+
+    return el;
+}
 
 // ============================================================
 // CSV PARSER
@@ -454,7 +495,7 @@ function addGridClickInteraction() {
 }
 
 // ============================================================
-// SCENARIO 1: TREE PLANTING RECOMMENDATION
+// SCENARIO 1: TREE PLANTING RECOMMENDATION (PIN MARKERS)
 // ============================================================
 
 function recommendTreeLocations() {
@@ -475,47 +516,25 @@ function recommendTreeLocations() {
         .sort((a, b) => Number(b.priority_score) - Number(a.priority_score))
         .slice(0, count);
 
-    const features = recommendations.map((cell, index) => ({
-        type: 'Feature',
-        geometry: {
-            type: 'Point',
-            coordinates: [Number(cell.longitude), Number(cell.latitude)]
-        },
-        properties: {
-            planting_rank: index + 1,
-            priority_score: Number(cell.priority_score)
-        }
-    }));
+    // Remove existing tree pin markers
+    treeMarkers.forEach(m => m.remove());
+    treeMarkers = [];
 
-    const geojson = { type: 'FeatureCollection', features: features };
+    // Add high-visibility location pointer pin markers
+    recommendations.forEach(cell => {
+        const pinEl = createLocationPin('tree');
+        const marker = new maplibregl.Marker({ element: pinEl, anchor: 'bottom' })
+            .setLngLat([Number(cell.longitude), Number(cell.latitude)])
+            .addTo(map);
 
-    if (map.getSource('tree-recommendations')) {
-        map.getSource('tree-recommendations').setData(geojson);
-    } else {
-        map.addSource('tree-recommendations', {
-            type: 'geojson',
-            data: geojson
-        });
+        treeMarkers.push(marker);
+    });
 
-        map.addLayer({
-            id: 'tree-recommendations',
-            type: 'circle',
-            source: 'tree-recommendations',
-            paint: {
-                'circle-radius': 7,
-                'circle-color': '#00ff88',
-                'circle-opacity': 0.9,
-                'circle-stroke-color': '#ffffff',
-                'circle-stroke-width': 1.5
-            }
-        });
-    }
-
-    showMessage(`${recommendations.length} tree planting locations recommended`);
+    showMessage(`${recommendations.length} tree planting locations pinned on map`);
 }
 
 // ============================================================
-// SCENARIO 2: MIST SPRAYER RECOMMENDATION
+// SCENARIO 2: MIST SPRAYER RECOMMENDATION (PIN MARKERS)
 // ============================================================
 
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -588,42 +607,19 @@ function recommendMistSprayerLocations() {
 
     const recommendations = selectEvenlyDistributedSprayers(pathCandidates, count);
 
-    const geojson = {
-        type: 'FeatureCollection',
-        features: recommendations.map((cell, index) => ({
-            type: 'Feature',
-            geometry: {
-                type: 'Point',
-                coordinates: [Number(cell.longitude), Number(cell.latitude)]
-            },
-            properties: {
-                sprayer_rank: index + 1,
-                priority_score: Number(cell.priority_score)
-            }
-        }))
-    };
+    // Remove existing mist pin markers
+    mistMarkers.forEach(m => m.remove());
+    mistMarkers = [];
 
-    if (map.getSource('mist-sprayer-recommendations')) {
-        map.getSource('mist-sprayer-recommendations').setData(geojson);
-    } else {
-        map.addSource('mist-sprayer-recommendations', {
-            type: 'geojson',
-            data: geojson
-        });
+    // Add high-visibility location pointer pin markers
+    recommendations.forEach(cell => {
+        const pinEl = createLocationPin('mist');
+        const marker = new maplibregl.Marker({ element: pinEl, anchor: 'bottom' })
+            .setLngLat([Number(cell.longitude), Number(cell.latitude)])
+            .addTo(map);
 
-        map.addLayer({
-            id: 'mist-sprayer-recommendations',
-            type: 'circle',
-            source: 'mist-sprayer-recommendations',
-            paint: {
-                'circle-radius': 8,
-                'circle-color': '#00e5ff',
-                'circle-opacity': 0.95,
-                'circle-stroke-color': '#ffffff',
-                'circle-stroke-width': 2
-            }
-        });
-    }
+        mistMarkers.push(marker);
+    });
 
-    showMessage(`${recommendations.length} mist sprayers evenly distributed across walking paths`);
+    showMessage(`${recommendations.length} mist sprayers pinned across walking paths`);
 }
