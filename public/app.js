@@ -146,30 +146,14 @@ map.on('load', () => {
         priorityData = parseCSV(priorityCSV);
         treeRecommendationData = parseCSV(treeCSV);
 
-        console.log(
-            "Priority cells:",
-            priorityData.length
-        );
-
-        console.log(
-            "Tree recommendations:",
-            treeRecommendationData.length
-        );
-
         addPriorityGrid();
-
         addGridClickInteraction();
-
         createTreeScenarioControl();
+        createMistSprayerScenarioControl();
 
     })
     .catch(error => {
-
-        console.error(
-            "Could not load ML grid data:",
-            error
-        );
-
+        console.error("Could not load ML grid data:", error);
     });
 
     fetch('/data/missingBuildings.geojson')
@@ -481,122 +465,82 @@ updateConditions();
 // ============================================================
 
 function addPriorityGrid() {
+    if (map.getSource('priority-grid')) return;
 
-    if (map.getSource('priority-grid')) {
-        return;
-    }
-
-    const features =
-        priorityData.map((cell, index) => {
-
-            return {
-                type: 'Feature',
-
-                geometry: {
-                    type: 'Point',
-
-                    coordinates: [
-                        Number(cell.longitude),
-                        Number(cell.latitude)
-                    ]
-                },
-
-                properties: {
-                    index: index,
-
-                    longitude:
-                        Number(cell.longitude),
-
-                    latitude:
-                        Number(cell.latitude),
-
-                    NDVI:
-                        Number(cell.NDVI),
-
-                    NDBI:
-                        Number(cell.NDBI),
-
-                    BSI:
-                        Number(cell.BSI),
-
-                    NDWI:
-                        Number(cell.NDWI),
-
-                    LST:
-                        Number(cell.LST),
-
-                    vegetation_fraction:
-                        Number(
-                            cell.vegetation_fraction
-                        ),
-
-                    priority_score:
-                        Number(
-                            cell.priority_score
-                        ),
-
-                    priority_class:
-                        cell.priority_class,
-
-                    recommendation:
-                        cell.recommendation
-                }
-            };
-
-        });
-
-    map.addSource(
-        'priority-grid',
-        {
-            type: 'geojson',
-
-            data: {
-                type: 'FeatureCollection',
-                features: features
+    const features = priorityData.map((cell, index) => {
+        return {
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [Number(cell.longitude), Number(cell.latitude)]
+            },
+            properties: {
+                index: index,
+                longitude: Number(cell.longitude),
+                latitude: Number(cell.latitude),
+                NDVI: Number(cell.NDVI),
+                NDBI: Number(cell.NDBI),
+                BSI: Number(cell.BSI),
+                NDWI: Number(cell.NDWI),
+                LST: Number(cell.LST),
+                vegetation_fraction: Number(cell.vegetation_fraction),
+                priority_score: Number(cell.priority_score),
+                priority_class: cell.priority_class,
+                intervention_type: cell.intervention_type,
+                recommendation: cell.recommendation
             }
+        };
+    });
+
+    map.addSource('priority-grid', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: features }
+    });
+
+    // 1. MAIN GRID LAYER (High-contrast, distinct class colors)
+    map.addLayer({
+        id: 'priority-grid',
+        type: 'circle',
+        source: 'priority-grid',
+        paint: {
+            'circle-radius': 6,
+            'circle-color': [
+                'case',
+                // Mist Sprayer (Neon Cyan)
+                ['==', ['get', 'intervention_type'], 'Mist Sprayer'], '#00ffff',
+
+                // Class-based distinct colors for Tree Priorities
+                ['match', ['get', 'priority_class'],
+                    'Very High', '#dc2626', // Crimson Red
+                    'High',      '#f97316', // Bright Orange
+                    'Moderate',  '#facc15', // Electric Yellow
+                    'Low',       '#10b981', // Emerald Green
+                    'Very Low',  '#3b82f6', // Vivid Blue (stands out from green vegetation)
+                    '#9ca3af'               // Fallback Gray
+                ]
+            ],
+            'circle-opacity': 0.9,
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#000000'
         }
-    );
+    });
+
+    // 2. SELECTION HIGHLIGHT LAYER (Glowing outer ring around clicked dot)
+    map.addSource('selected-grid-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
 
     map.addLayer({
-
-        id: 'priority-grid',
-
+        id: 'priority-grid-highlight',
         type: 'circle',
-
-        source: 'priority-grid',
-
+        source: 'selected-grid-source',
         paint: {
-
-            'circle-radius': 5,
-
-            'circle-color': [
-
-                'interpolate',
-
-                ['linear'],
-
-                ['get', 'priority_score'],
-
-                0,
-                '#22c55e',
-
-                40,
-                '#eab308',
-
-                60,
-                '#f97316',
-
-                80,
-                '#ef4444'
-            ],
-
-            'circle-opacity': 0.45,
-
-            'circle-stroke-width': 0.5,
-
-            'circle-stroke-color':
-                '#ffffff'
-
+            'circle-radius': 11,
+            'circle-color': 'transparent',
+            'circle-stroke-width': 3.5,
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-opacity': 1
         }
     });
 }
@@ -605,223 +549,100 @@ function addPriorityGrid() {
 // GRID CLICK INTERACTION
 // ============================================================
 
+let activeComicPopup = null;
+
 function addGridClickInteraction() {
-
-    map.on(
-        'click',
-        'priority-grid',
-        function (event) {
-
-            if (
-                !event.features ||
-                !event.features.length
-            ) {
-                return;
-            }
-
-            const cell =
-                event.features[0].properties;
-
-            selectedGridCell = cell;
-
-            showGridInformation(cell);
-
-        }
-    );
-
-
-    map.on(
-        'mouseenter',
-        'priority-grid',
-        function () {
-
-            map.getCanvas()
-                .style.cursor = 'pointer';
-
-        }
-    );
-
-
-    map.on(
-        'mouseleave',
-        'priority-grid',
-        function () {
-
-            map.getCanvas()
-                .style.cursor = '';
-
-        }
-    );
-}
-
-// ============================================================
-// GRID INFORMATION PANEL
-// ============================================================
-
-function showGridInformation(cell) {
-
-    let panel =
-        document.getElementById(
-            'gridInfoPanel'
-        );
-
-    if (!panel) {
-
-        panel =
-            document.createElement('div');
-
-        panel.id =
-            'gridInfoPanel';
-
-        panel.style.position =
-            'fixed';
-
-        panel.style.right =
-            '20px';
-
-        panel.style.top =
-            '20px';
-
-        panel.style.zIndex =
-            '200';
-
-        panel.style.width =
-            '280px';
-
-        panel.style.padding =
-            '18px';
-
-        panel.style.borderRadius =
-            '14px';
-
-        panel.style.background =
-            'rgba(7,17,15,.96)';
-
-        panel.style.border =
-            '1px solid rgba(255,255,255,.12)';
-
-        panel.style.color =
-            '#edf7f2';
-
-        panel.style.fontSize =
-            '12px';
-
-        panel.style.boxShadow =
-            '0 15px 40px rgba(0,0,0,.4)';
-
-        document.body.appendChild(panel);
+    // Hide or remove the old side panel if it exists in the DOM
+    const sideInfoBox = document.getElementById('gridInfo') || document.getElementById('grid-info') || document.getElementById('grid-info-box');
+    if (sideInfoBox) {
+        sideInfoBox.style.display = 'none';
     }
 
-    const vegetationPercent =
-        (
-            Number(
-                cell.vegetation_fraction
-            ) * 100
-        ).toFixed(1);
+    map.on('click', 'priority-grid', function (event) {
+        if (!event.features || !event.features.length) return;
 
-    panel.innerHTML = `
+        const clickedFeature = event.features[0];
+        const cell = clickedFeature.properties;
+        const coordinates = event.lngLat;
 
-        <div style="
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            margin-bottom:12px;
-        ">
+        selectedGridCell = cell;
 
-            <strong style="font-size:15px;">
-                Grid Cell
-            </strong>
+        // Close any existing popup
+        if (activeComicPopup) {
+            activeComicPopup.remove();
+        }
 
-            <button
-                id="closeGridInfo"
-                style="
-                    background:none;
-                    border:none;
-                    color:white;
-                    cursor:pointer;
-                    font-size:18px;
-                "
-            >
-                ×
-            </button>
+        // Color badge based on intervention or priority level
+        let badgeBg = '#facc15';
+        if (cell.intervention_type === 'Mist Sprayer') badgeBg = '#00ffff';
+        else if (cell.priority_class === 'Very High') badgeBg = '#ff2a2a';
+        else if (cell.priority_class === 'High') badgeBg = '#ff8800';
+        else if (cell.priority_class === 'Low') badgeBg = '#10b981';
+        else if (cell.priority_class === 'Very Low') badgeBg = '#3b82f6';
 
-        </div>
+        // Comic Dialogue Cloud HTML with ALL Grid Metrics
+        const popupHTML = `
+            <div style="line-height:1.35; font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;">
+                <div class="comic-badge" style="background:${badgeBg};">
+                    ${cell.intervention_type || 'Priority Grid'}
+                </div>
 
-        <div style="margin-bottom:12px;">
-            <strong>
-                Priority:
-                ${Number(cell.priority_score).toFixed(1)}/100
-            </strong>
+                <div style="font-weight:900; font-size:16px; text-transform:uppercase; margin-bottom:2px;">
+                    ${cell.priority_class} Priority
+                </div>
 
-            <div style="margin-top:4px;">
-                ${cell.priority_class}
+                <div style="font-weight:bold; font-size:13px; color:#111; margin-bottom:8px; border-bottom:2px dashed #000; padding-bottom:4px;">
+                    Priority Score: <span style="font-size:16px; font-weight:900; color:#d97706;">${Number(cell.priority_score).toFixed(1)}</span> / 100
+                </div>
+
+                <!-- Complete Grid Cell Indicators Grid -->
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size:11px; font-weight:700; background:#f8fafc; padding:6px; border:2px solid #000; border-radius:8px; margin-bottom:6px;">
+                    <div>🌡️ LST: <b>${Number(cell.LST).toFixed(1)}°C</b></div>
+                    <div>🌿 Veg: <b>${(Number(cell.vegetation_fraction) * 100).toFixed(0)}%</b></div>
+                    <div>🟢 NDVI: <b>${Number(cell.NDVI).toFixed(2)}</b></div>
+                    <div>🏗️ NDBI: <b>${Number(cell.NDBI).toFixed(2)}</b></div>
+                    <div>⏳ BSI: <b>${Number(cell.BSI).toFixed(2)}</b></div>
+                    <div>💧 NDWI: <b>${Number(cell.NDWI).toFixed(2)}</b></div>
+                </div>
+
+                <div style="font-size:10px; font-weight:bold; color:#475569; margin-bottom:6px;">
+                    📍 Coords: ${Number(cell.latitude).toFixed(5)}, ${Number(cell.longitude).toFixed(5)}
+                </div>
+
+                <div style="font-size:10.5px; font-weight:700; background:#fff7ed; padding:6px; border:2px solid #000; border-radius:6px; margin-top:4px;">
+                    💡 <i>"${cell.recommendation || 'No recommendation provided.'}"</i>
+                </div>
             </div>
-        </div>
+        `;
 
-        <hr style="
-            border:none;
-            border-top:
-                1px solid rgba(255,255,255,.1);
-        ">
+        const PopupClass = window.maplibregl ? maplibregl.Popup : mapboxgl.Popup;
 
-        <div>
-            Vegetation:
-            <strong>${vegetationPercent}%</strong>
-        </div>
+        activeComicPopup = new PopupClass({
+            className: 'comic-popup',
+            closeButton: true,
+            closeOnClick: false,
+            offset: 12
+        })
+            .setLngLat(coordinates)
+            .setHTML(popupHTML)
+            .addTo(map);
 
-        <div>
-            LST:
-            <strong>${Number(cell.LST).toFixed(2)}°C</strong>
-        </div>
+        // Position highlight ring on selected dot
+        if (map.getSource('selected-grid-source')) {
+            map.getSource('selected-grid-source').setData({
+                type: 'FeatureCollection',
+                features: [clickedFeature]
+            });
+        }
+    });
 
-        <div>
-            NDVI:
-            <strong>${Number(cell.NDVI).toFixed(3)}</strong>
-        </div>
+    map.on('mouseenter', 'priority-grid', function () {
+        map.getCanvas().style.cursor = 'pointer';
+    });
 
-        <div>
-            NDWI:
-            <strong>${Number(cell.NDWI).toFixed(3)}</strong>
-        </div>
-
-        <div>
-            NDBI:
-            <strong>${Number(cell.NDBI).toFixed(3)}</strong>
-        </div>
-
-        <div>
-            BSI:
-            <strong>${Number(cell.BSI).toFixed(3)}</strong>
-        </div>
-
-        <hr style="
-            border:none;
-            border-top:
-                1px solid rgba(255,255,255,.1);
-        ">
-
-        <div style="
-            line-height:1.5;
-        ">
-            <strong>Recommendation</strong>
-
-            <p>
-                ${cell.recommendation}
-            </p>
-        </div>
-
-    `;
-
-    document
-        .getElementById('closeGridInfo')
-        .addEventListener(
-            'click',
-            function () {
-
-                panel.remove();
-
-            }
-        );
+    map.on('mouseleave', 'priority-grid', function () {
+        map.getCanvas().style.cursor = '';
+    });
 }
 
 // ============================================================
@@ -931,156 +752,220 @@ function createTreeScenarioControl() {
 // ============================================================
 
 function recommendTreeLocations() {
+    const count = parseInt(document.getElementById('treeCount').value);
 
-    const count =
-        parseInt(
-            document.getElementById(
-                'treeCount'
-            ).value
-        );
-
-    if (
-        !count ||
-        count <= 0
-    ) {
-
-        showMessage(
-            'Enter a valid number of trees'
-        );
-
+    if (!count || count <= 0) {
+        showMessage('Enter a valid number of trees');
         return;
     }
 
-
-    const recommendations =
-        priorityData
-            .slice()
-            .sort(
-                (a, b) =>
-                    Number(
-                        b.priority_score
-                    )
-                    -
-                    Number(
-                        a.priority_score
-                    )
-            )
-            .slice(
-                0,
-                count
-            );
-
-
-    const features =
-        recommendations.map(
-            (cell, index) => {
-
-                return {
-
-                    type: 'Feature',
-
-                    geometry: {
-
-                        type: 'Point',
-
-                        coordinates: [
-                            Number(
-                                cell.longitude
-                            ),
-                            Number(
-                                cell.latitude
-                            )
-                        ]
-
-                    },
-
-                    properties: {
-
-                        planting_rank:
-                            index + 1,
-
-                        priority_score:
-                            Number(
-                                cell.priority_score
-                            )
-
-                    }
-
-                };
-
-            }
-        );
-
-
-    const geojson = {
-
-        type: 'FeatureCollection',
-
-        features: features
-
-    };
-
-
-    if (
-        map.getSource(
-            'tree-recommendations'
-        )
-    ) {
-
-        map.getSource(
-            'tree-recommendations'
-        ).setData(
-            geojson
-        );
-
-    } else {
-
-        map.addSource(
-            'tree-recommendations',
-            {
-                type: 'geojson',
-                data: geojson
-            }
-        );
-
-
-        map.addLayer({
-
-            id:
-                'tree-recommendations',
-
-            type:
-                'circle',
-
-            source:
-                'tree-recommendations',
-
-            paint: {
-
-                'circle-radius':
-                    7,
-
-                'circle-color':
-                    '#00ff88',
-
-                'circle-opacity':
-                    0.9,
-
-                'circle-stroke-color':
-                    '#ffffff',
-
-                'circle-stroke-width':
-                    1.5
-
-            }
-
-        });
-
-    }
-
-
-    showMessage(
-        `${recommendations.length} planting locations recommended`
+    // STRICTLY FILTER FOR TREE PLANTING CELLS ONLY
+    const treeCandidates = priorityData.filter(
+        cell => cell.intervention_type === 'Tree Planting'
     );
 
+    const recommendations = treeCandidates
+        .slice()
+        .sort((a, b) => Number(b.priority_score) - Number(a.priority_score))
+        .slice(0, count);
+
+    const features = recommendations.map((cell, index) => ({
+        type: 'Feature',
+        geometry: {
+            type: 'Point',
+            coordinates: [Number(cell.longitude), Number(cell.latitude)]
+        },
+        properties: {
+            planting_rank: index + 1,
+            priority_score: Number(cell.priority_score)
+        }
+    }));
+
+    const geojson = { type: 'FeatureCollection', features: features };
+
+    if (map.getSource('tree-recommendations')) {
+        map.getSource('tree-recommendations').setData(geojson);
+    } else {
+        map.addSource('tree-recommendations', {
+            type: 'geojson',
+            data: geojson
+        });
+
+        map.addLayer({
+            id: 'tree-recommendations',
+            type: 'circle',
+            source: 'tree-recommendations',
+            paint: {
+                'circle-radius': 7,
+                'circle-color': '#00ff88',
+                'circle-opacity': 0.9,
+                'circle-stroke-color': '#ffffff',
+                'circle-stroke-width': 1.5
+            }
+        });
+    }
+
+    showMessage(`${recommendations.length} tree planting locations recommended`);
+}
+
+// ============================================================
+// SPATIAL DISTANCE HELPERS FOR EVEN DISTRIBUTION
+// ============================================================
+
+function getDistanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function selectEvenlyDistributedSprayers(candidates, requestedCount) {
+    if (candidates.length <= requestedCount) return candidates;
+
+    const sorted = candidates.slice().sort(
+        (a, b) => Number(b.priority_score) - Number(a.priority_score)
+    );
+
+    let minDistanceMeters = 40;
+    let selected = [];
+
+    while (minDistanceMeters > 5 && selected.length < requestedCount) {
+        selected = [];
+        for (const point of sorted) {
+            const isFarEnough = selected.every(p =>
+                getDistanceMeters(
+                    Number(p.latitude), Number(p.longitude),
+                    Number(point.latitude), Number(point.longitude)
+                ) >= minDistanceMeters
+            );
+
+            if (isFarEnough) {
+                selected.push(point);
+                if (selected.length === requestedCount) break;
+            }
+        }
+        minDistanceMeters -= 4;
+    }
+
+    if (selected.length < requestedCount) {
+        for (const point of sorted) {
+            if (!selected.includes(point)) {
+                selected.push(point);
+                if (selected.length === requestedCount) break;
+            }
+        }
+    }
+
+    return selected;
+}
+
+// ============================================================
+// MIST SPRAYER SCENARIO CONTROL & RECOMMENDATION
+// ============================================================
+
+function createMistSprayerScenarioControl() {
+    const control = document.createElement('div');
+    control.id = 'mistScenarioControl';
+    control.style.cssText = `
+        position: fixed;
+        left: 20px;
+        bottom: 160px;
+        z-index: 200;
+        padding: 15px;
+        width: 220px;
+        border-radius: 14px;
+        background: rgba(7,17,15,.96);
+        color: #edf7f2;
+        border: 1px solid rgba(0,229,255,.3);
+    `;
+
+    control.innerHTML = `
+        <div style="font-weight:bold; margin-bottom:8px; color:#00e5ff;">
+            Mist Sprayer Scenario
+        </div>
+        <div style="font-size:11px; opacity:.7; margin-bottom:8px;">
+            Number of recommended sprayers on pathways
+        </div>
+        <input
+            id="mistSprayerCount"
+            type="number"
+            min="1"
+            value="50"
+            style="width:100%; box-sizing:border-box; padding:8px; margin-bottom:8px; border-radius:8px; border:1px solid #555; background:#111; color:#fff;"
+        >
+        <button
+            id="recommendMistSprayers"
+            style="width:100%; padding:9px; border:none; border-radius:8px; cursor:pointer; background:#00e5ff; color:#000; font-weight:bold;"
+        >
+            Recommend Sprayers
+        </button>
+    `;
+
+    document.body.appendChild(control);
+
+    document
+        .getElementById('recommendMistSprayers')
+        .addEventListener('click', recommendMistSprayerLocations);
+}
+
+function recommendMistSprayerLocations() {
+    const count = parseInt(document.getElementById('mistSprayerCount').value);
+
+    if (!count || count <= 0) {
+        showMessage('Enter a valid number of mist sprayers');
+        return;
+    }
+
+    const pathCandidates = priorityData.filter(
+        cell => cell.intervention_type === 'Mist Sprayer'
+    );
+
+    if (pathCandidates.length === 0) {
+        showMessage('No path locations found for mist sprayers');
+        return;
+    }
+
+    const recommendations = selectEvenlyDistributedSprayers(pathCandidates, count);
+
+    const geojson = {
+        type: 'FeatureCollection',
+        features: recommendations.map((cell, index) => ({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [Number(cell.longitude), Number(cell.latitude)]
+            },
+            properties: {
+                sprayer_rank: index + 1,
+                priority_score: Number(cell.priority_score)
+            }
+        }))
+    };
+
+    if (map.getSource('mist-sprayer-recommendations')) {
+        map.getSource('mist-sprayer-recommendations').setData(geojson);
+    } else {
+        map.addSource('mist-sprayer-recommendations', {
+            type: 'geojson',
+            data: geojson
+        });
+
+        map.addLayer({
+            id: 'mist-sprayer-recommendations',
+            type: 'circle',
+            source: 'mist-sprayer-recommendations',
+            paint: {
+                'circle-radius': 8,
+                'circle-color': '#00e5ff',
+                'circle-opacity': 0.95,
+                'circle-stroke-color': '#ffffff',
+                'circle-stroke-width': 2
+            }
+        });
+    }
+
+    showMessage(`${recommendations.length} mist sprayers evenly distributed across walking paths`);
 }
