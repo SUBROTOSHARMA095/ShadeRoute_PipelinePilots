@@ -12,6 +12,10 @@ let activeComicPopup = null;
 let treeMarkers = [];
 let mistMarkers = [];
 
+// --- Heat Risk Zones state ---
+let heatZoneLegendData = null;   // parsed heat_zone_legend.json
+let heatZonesVisible = false;    // layer starts hidden until user toggles it
+
 const map = new maplibregl.Map({
     container: 'map',
     style: '/style.json'
@@ -175,6 +179,9 @@ map.on('load', () => {
         addGridClickInteraction();
     })
     .catch(error => console.error("Could not load ML grid data:", error));
+
+    // 7. Human Heat Index Zones (GeoJSON polygons + legend JSON)
+    loadHeatRiskZones();
 });
 
 // ============================================================
@@ -208,6 +215,9 @@ document.addEventListener("DOMContentLoaded", function () {
             showMessage("Prioritize native trees near busy walking areas and public spaces");
         });
     }
+
+    // Heat Risk Zones toggle + sidebar legend get built once the sidebar exists
+    buildHeatZoneSidebarSection();
 });
 
 // Map Zoom Controls
@@ -248,11 +258,11 @@ map.on("rotate", function () {
 function createLocationPin(type) {
     const el = document.createElement('div');
     el.className = 'custom-location-pointer';
-    
+
     const isTree = type === 'tree';
     const pinColor = isTree ? '#10b981' : '#00e5ff';
     const icon = isTree ? '🌳' : '💧';
-    
+
     el.innerHTML = `
         <div style="
             position: relative;
@@ -622,4 +632,240 @@ function recommendMistSprayerLocations() {
     });
 
     showMessage(`${recommendations.length} mist sprayers pinned across walking paths`);
+}
+
+// ============================================================
+// SCENARIO 3: HUMAN HEAT INDEX ZONES
+// ============================================================
+// Data source: heat_risk_classification.py output
+//   /data/heat_risk_zones.geojson  -> zone polygons (Low/Moderate/High risk)
+//   /data/heat_zone_legend.json    -> per-class advisory text for the sidebar
+
+const HEAT_ZONE_COLORS = {
+    'Low Risk': '#16a34a',
+    'Moderate Risk': '#f59e0b',
+    'High Risk': '#b91c1c'
+};
+
+function loadHeatRiskZones() {
+    Promise.all([
+        fetch('/data/heat_risk_zones.geojson').then(res => res.json()),
+        fetch('/data/heat_zone_legend.json').then(res => res.json())
+    ])
+        .then(([zonesGeoJSON, legendJSON]) => {
+            heatZoneLegendData = legendJSON;
+
+            map.addSource('heat-risk-zones', {
+                type: 'geojson',
+                data: zonesGeoJSON
+            });
+
+            map.addLayer({
+                id: 'heat-risk-zones-fill',
+                type: 'fill',
+                source: 'heat-risk-zones',
+                layout: {
+                    // hidden by default; toggled on from the sidebar
+                    visibility: 'none'
+                },
+                paint: {
+                    'fill-color': [
+                        'match', ['get', 'risk_class'],
+                        'Low Risk', HEAT_ZONE_COLORS['Low Risk'],
+                        'Moderate Risk', HEAT_ZONE_COLORS['Moderate Risk'],
+                        'High Risk', HEAT_ZONE_COLORS['High Risk'],
+                        '#9ca3af'
+                    ],
+                    'fill-opacity': 0.45
+                }
+            });
+
+            map.addLayer({
+                id: 'heat-risk-zones-outline',
+                type: 'line',
+                source: 'heat-risk-zones',
+                layout: {
+                    visibility: 'none'
+                },
+                paint: {
+                    'line-color': [
+                        'match', ['get', 'risk_class'],
+                        'Low Risk', HEAT_ZONE_COLORS['Low Risk'],
+                        'Moderate Risk', HEAT_ZONE_COLORS['Moderate Risk'],
+                        'High Risk', HEAT_ZONE_COLORS['High Risk'],
+                        '#6b7280'
+                    ],
+                    'line-width': 1.5,
+                    'line-opacity': 0.9
+                }
+            });
+
+            addHeatZoneClickInteraction();
+            populateHeatZoneLegendPanel();
+        })
+        .catch(error => console.error('Could not load heat risk zone data:', error));
+}
+
+function toggleHeatZonesLayer() {
+    if (!map.getLayer('heat-risk-zones-fill')) {
+        showMessage('Heat zone data not loaded yet');
+        return;
+    }
+
+    heatZonesVisible = !heatZonesVisible;
+    const visibility = heatZonesVisible ? 'visible' : 'none';
+
+    map.setLayoutProperty('heat-risk-zones-fill', 'visibility', visibility);
+    map.setLayoutProperty('heat-risk-zones-outline', 'visibility', visibility);
+
+    const toggleBtn = document.getElementById('toggleHeatZonesBtn');
+    if (toggleBtn) {
+        toggleBtn.classList.toggle('active', heatZonesVisible);
+    }
+
+    showMessage(heatZonesVisible ? 'Heat risk zones shown' : 'Heat risk zones hidden');
+}
+
+function addHeatZoneClickInteraction() {
+    map.on('click', 'heat-risk-zones-fill', function (event) {
+        if (!event.features || !event.features.length) return;
+
+        const feature = event.features[0];
+        const props = feature.properties;
+        const coordinates = event.lngLat;
+
+        if (activeComicPopup) {
+            activeComicPopup.remove();
+        }
+
+        const riskClass = props.risk_class;
+        const badgeBg = HEAT_ZONE_COLORS[riskClass] || '#9ca3af';
+        const classInfo = heatZoneLegendData && heatZoneLegendData.zones
+            ? heatZoneLegendData.zones[riskClass]
+            : null;
+
+        const advisoryListHTML = classInfo
+            ? classInfo.advisory.map(line => `<li>${line}</li>`).join('')
+            : '<li>No advisory data available.</li>';
+
+        const popupHTML = `
+            <div style="line-height:1.35; font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;">
+                <div class="comic-badge" style="background:${badgeBg};">
+                    🌡️ ${riskClass}
+                </div>
+
+                <div style="font-weight:900; font-size:15px; margin-bottom:4px;">
+                    ${props.zone_name || 'Heat Zone'}
+                </div>
+
+                <div style="font-size:11px; font-weight:700; color:#111; margin-bottom:8px;">
+                    ${classInfo ? classInfo.summary : ''}
+                </div>
+
+                <div style="font-size:10.5px; font-weight:700; background:#fff7ed; padding:6px; border:2px solid #000; border-radius:6px;">
+                    <b>Precautions:</b>
+                    <ul style="margin:4px 0 0 16px; padding:0;">
+                        ${advisoryListHTML}
+                    </ul>
+                </div>
+
+                <div style="font-size:10px; font-weight:bold; color:#475569; margin-top:6px;">
+                    📐 Area: ${props.area_m2 ? Math.round(props.area_m2) + ' m²' : 'N/A'}
+                </div>
+            </div>
+        `;
+
+        const PopupClass = window.maplibregl ? maplibregl.Popup : mapboxgl.Popup;
+
+        activeComicPopup = new PopupClass({
+            className: 'comic-popup',
+            closeButton: true,
+            closeOnClick: false,
+            offset: 12
+        })
+            .setLngLat(coordinates)
+            .setHTML(popupHTML)
+            .addTo(map);
+    });
+
+    map.on('mouseenter', 'heat-risk-zones-fill', () => {
+        map.getCanvas().style.cursor = 'pointer';
+    });
+
+    map.on('mouseleave', 'heat-risk-zones-fill', () => {
+        map.getCanvas().style.cursor = '';
+    });
+}
+
+// ------------------------------------------------------------
+// Sidebar section: legend + toggle button
+// ------------------------------------------------------------
+// Built dynamically so this feature doesn't depend on you having
+// pre-added matching markup in your HTML. If you'd rather hand-place
+// this in your sidebar's HTML directly, just move the innerHTML below
+// into a <div id="heatZoneSection"></div> in your sidebar and delete
+// the injection code — populateHeatZoneLegendPanel() will still work
+// as long as that container id exists.
+
+function buildHeatZoneSidebarSection() {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar || document.getElementById('heatZoneSection')) return;
+
+    const section = document.createElement('div');
+    section.id = 'heatZoneSection';
+    section.className = 'sidebar-section';
+    section.innerHTML = `
+        <h3 style="margin-bottom:6px;">Human Heat Index</h3>
+        <button id="toggleHeatZonesBtn" class="sidebar-btn">
+            Show Heat Risk Zones
+        </button>
+        <div id="heatZoneLegendList" style="margin-top:10px; font-size:12px;"></div>
+    `;
+    sidebar.appendChild(section);
+
+    const toggleBtn = document.getElementById('toggleHeatZonesBtn');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', toggleHeatZonesLayer);
+    }
+
+    // If the legend data already arrived before the sidebar was built, render it now
+    if (heatZoneLegendData) {
+        populateHeatZoneLegendPanel();
+    }
+}
+
+function populateHeatZoneLegendPanel() {
+    const listEl = document.getElementById('heatZoneLegendList');
+    if (!listEl || !heatZoneLegendData || !heatZoneLegendData.zones) return;
+
+    const order = ['High Risk', 'Moderate Risk', 'Low Risk'];
+
+    listEl.innerHTML = order.map(riskClass => {
+        const info = heatZoneLegendData.zones[riskClass];
+        if (!info) return '';
+        const color = HEAT_ZONE_COLORS[riskClass] || '#9ca3af';
+
+        return `
+            <div class="heat-legend-item" style="
+                display:flex;
+                align-items:flex-start;
+                gap:8px;
+                margin-bottom:8px;
+                padding:8px;
+                border-radius:8px;
+                background:rgba(255,255,255,0.04);
+            ">
+                <span style="
+                    width:12px; height:12px; border-radius:3px;
+                    background:${color}; margin-top:3px; flex-shrink:0;
+                "></span>
+                <div>
+                    <div style="font-weight:700;">${riskClass}</div>
+                    <div style="opacity:0.85; font-size:11px; margin-top:2px;">
+                        ${info.summary}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }

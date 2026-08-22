@@ -1,0 +1,44 @@
+{
+  "generated_thresholds": {
+    "low_moderate": 0.337075659982211,
+    "moderate_high": 0.3842560946172177
+  },
+  "conditions_used": {
+    "peak_window_local": "12:00-15:00",
+    "mean_air_temp_c": 34.9,
+    "mean_relative_humidity_pct": 42.3,
+    "mean_wind_speed_ms": 3.9,
+    "mean_solar_radiation_wm2": 821.0,
+    "heat_index_c": 37.8
+  },
+  "zones": {
+    "Low Risk": {
+      "color": "#16a34a",
+      "summary": "Comfortable thermal conditions. Safe for normal outdoor activity.",
+      "advisory": [
+        "No special precautions needed for most people.",
+        "Still carry water during peak afternoon hours (12-3 PM).",
+        "Good zone for outdoor gatherings, sports, and events."
+      ]
+    },
+    "Moderate Risk": {
+      "color": "#f59e0b",
+      "summary": "Elevated heat stress, especially for prolonged exposure.",
+      "advisory": [
+        "Limit continuous outdoor activity to under 45 minutes without shade breaks.",
+        "Stay hydrated; avoid strenuous activity between 12-3 PM.",
+        "Vulnerable groups (elderly, young children, those with health conditions) should take extra breaks."
+      ]
+    },
+    "High Risk": {
+      "color": "#b91c1c",
+      "summary": "Significant heat stress. Prolonged exposure can be dangerous.",
+      "advisory": [
+        "Avoid strenuous outdoor activity, especially between 11 AM - 4 PM.",
+        "Seek shade or air-conditioned spaces frequently.",
+        "Watch for signs of heat exhaustion: dizziness, nausea, excessive sweating.",
+        "Vulnerable individuals should avoid this zone during peak hours entirely."
+      ]
+    }
+  }
+}
