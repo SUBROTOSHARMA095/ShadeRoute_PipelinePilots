@@ -69,7 +69,7 @@ map.on('load', () => {
             });
 
             map.fitBounds(bounds, { padding: 50 });
-            map.setMaxBounds(bounds);
+            //map.setMaxBounds(bounds);
         });
 
     // 2. Vegetation GeoJSON
@@ -180,7 +180,7 @@ map.on('load', () => {
     })
     .catch(error => console.error("Could not load ML grid data:", error));
 
-    // 7. Human Heat Index Zones (GeoJSON polygons + legend JSON)
+    // 7. Human WBGT Heat Stress Zones (GeoJSON polygons + legend JSON)
     loadHeatRiskZones();
 });
 
@@ -189,7 +189,6 @@ map.on('load', () => {
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", function () {
-    // Sidebar Open / Close
     const menuBtn = document.getElementById("menuButton");
     const closeBtn = document.getElementById("closeSidebar");
     const sidebar = document.getElementById("sidebar");
@@ -201,14 +200,12 @@ document.addEventListener("DOMContentLoaded", function () {
         closeBtn.addEventListener("click", () => sidebar.classList.add("collapsed"));
     }
 
-    // Sidebar Scenario Buttons
     const treeBtn = document.getElementById("recommendTreesBtn");
     const mistBtn = document.getElementById("recommendMistBtn");
 
     if (treeBtn) treeBtn.addEventListener("click", recommendTreeLocations);
     if (mistBtn) mistBtn.addEventListener("click", recommendMistSprayerLocations);
 
-    // Suggestion action button
     const suggestionAction = document.getElementById("suggestionAction");
     if (suggestionAction) {
         suggestionAction.addEventListener("click", function () {
@@ -216,11 +213,9 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Heat Risk Zones toggle + sidebar legend get built once the sidebar exists
     buildHeatZoneSidebarSection();
 });
 
-// Map Zoom Controls
 const mapControls = document.querySelectorAll(".map-control");
 if (mapControls.length >= 2) {
     mapControls[0].addEventListener("click", function () {
@@ -234,7 +229,6 @@ if (mapControls.length >= 2) {
     });
 }
 
-// North Compass Reset
 const northButton = document.getElementById("northButton");
 const compassArrow = document.getElementById("compassArrow");
 
@@ -526,11 +520,9 @@ function recommendTreeLocations() {
         .sort((a, b) => Number(b.priority_score) - Number(a.priority_score))
         .slice(0, count);
 
-    // Remove existing tree pin markers
     treeMarkers.forEach(m => m.remove());
     treeMarkers = [];
 
-    // Add high-visibility location pointer pin markers
     recommendations.forEach(cell => {
         const pinEl = createLocationPin('tree');
         const marker = new maplibregl.Marker({ element: pinEl, anchor: 'bottom' })
@@ -617,11 +609,9 @@ function recommendMistSprayerLocations() {
 
     const recommendations = selectEvenlyDistributedSprayers(pathCandidates, count);
 
-    // Remove existing mist pin markers
     mistMarkers.forEach(m => m.remove());
     mistMarkers = [];
 
-    // Add high-visibility location pointer pin markers
     recommendations.forEach(cell => {
         const pinEl = createLocationPin('mist');
         const marker = new maplibregl.Marker({ element: pinEl, anchor: 'bottom' })
@@ -635,70 +625,114 @@ function recommendMistSprayerLocations() {
 }
 
 // ============================================================
-// SCENARIO 3: HUMAN HEAT INDEX ZONES
+// SCENARIO 3: HUMAN THERMAL STRESS (IMD HEAT INDEX ZONES)
 // ============================================================
-// Data source: heat_risk_classification.py output
-//   /data/heat_risk_zones.geojson  -> zone polygons (Low/Moderate/High risk)
-//   /data/heat_zone_legend.json    -> per-class advisory text for the sidebar
 
 const HEAT_ZONE_COLORS = {
-    'Low Risk': '#16a34a',
-    'Moderate Risk': '#f59e0b',
-    'High Risk': '#b91c1c'
+    'Extreme Danger': '#8e44ad',    // Severe Danger (≥ 55°C)
+    'Danger': '#e74c3c',            // Heatstroke Likely (46 - 54°C)
+    'Extreme Caution': '#e67e22',    // Heat Exhaustion (41 - 45°C)
+    'Caution': '#f1c40f',            // Fatigue Warning (35 - 40°C)
+    'Normal / Safe': '#2ecc71'       // Safe Conditions (< 35°C)
+};
+
+const VULNERABILITY_COLORS = {
+    'Low': '#2ecc71',
+    'Moderate': '#f1c40f',
+    'High': '#e74c3c'
+};
+
+const OVERALL_RISK_STYLE = {
+    'Critical': { emoji: '🔴', color: '#8e44ad' },
+    'High': { emoji: '🟠', color: '#e74c3c' },
+    'Moderate': { emoji: '🟡', color: '#f1c40f' },
+    'Low': { emoji: '🟢', color: '#2ecc71' }
+};
+
+// Fallback metadata so sidebar legend works even if heat_zone_legend.json isn't loaded
+const DEFAULT_IMD_LEGEND = {
+    zones: {
+        'Extreme Danger': {
+            summary: 'Heat Index ≥ 55°C. Heatstroke highly likely with continued exposure.',
+            advisory: ['Avoid all outdoor exertion', 'Stay in shaded/air-conditioned spaces']
+        },
+        'Danger': {
+            summary: 'Heat Index 46°C – 54°C. Severe heat exhaustion & heat cramps likely.',
+            advisory: ['Limit exposure to early morning', 'Maintain high fluid intake']
+        },
+        'Extreme Caution': {
+            summary: 'Heat Index 41°C – 45°C. Heat exhaustion possible with prolonged activity.',
+            advisory: ['Take frequent shaded breaks', 'Drink water regularly']
+        },
+        'Caution': {
+            summary: 'Heat Index 35°C – 40°C. Fatigue possible with prolonged exposure.',
+            advisory: ['Wear lightweight clothing', 'Stay hydrated']
+        },
+        'Normal / Safe': {
+            summary: 'Heat Index < 35°C. Safe environmental thermal conditions.',
+            advisory: ['Standard outdoor thermal comfort']
+        }
+    }
 };
 
 function loadHeatRiskZones() {
     Promise.all([
         fetch('/data/heat_risk_zones.geojson').then(res => res.json()),
-        fetch('/data/heat_zone_legend.json').then(res => res.json())
+        fetch('/data/heat_zone_legend.json').then(res => res.json()).catch(() => null)
     ])
         .then(([zonesGeoJSON, legendJSON]) => {
-            heatZoneLegendData = legendJSON;
+            // Use local IMD fallback if JSON file is missing or has old keys
+            heatZoneLegendData = (legendJSON && legendJSON.zones && legendJSON.zones['Extreme Danger'])
+                ? legendJSON
+                : DEFAULT_IMD_LEGEND;
 
-            map.addSource('heat-risk-zones', {
-                type: 'geojson',
-                data: zonesGeoJSON
-            });
+            if (!map.getSource('heat-risk-zones')) {
+                map.addSource('heat-risk-zones', {
+                    type: 'geojson',
+                    data: zonesGeoJSON
+                });
+            }
 
-            map.addLayer({
-                id: 'heat-risk-zones-fill',
-                type: 'fill',
-                source: 'heat-risk-zones',
-                layout: {
-                    // hidden by default; toggled on from the sidebar
-                    visibility: 'none'
-                },
-                paint: {
-                    'fill-color': [
-                        'match', ['get', 'risk_class'],
-                        'Low Risk', HEAT_ZONE_COLORS['Low Risk'],
-                        'Moderate Risk', HEAT_ZONE_COLORS['Moderate Risk'],
-                        'High Risk', HEAT_ZONE_COLORS['High Risk'],
-                        '#9ca3af'
-                    ],
-                    'fill-opacity': 0.45
-                }
-            });
+            if (!map.getLayer('heat-risk-zones-fill')) {
+                map.addLayer({
+                    id: 'heat-risk-zones-fill',
+                    type: 'fill',
+                    source: 'heat-risk-zones',
+                    layout: {
+                        visibility: 'visible'
+                    },
+                    paint: {
+                        'fill-color': [
+                            'match', ['get', 'risk_class'],
+                            'Extreme Danger', HEAT_ZONE_COLORS['Extreme Danger'],
+                            'Danger', HEAT_ZONE_COLORS['Danger'],
+                            'Extreme Caution', HEAT_ZONE_COLORS['Extreme Caution'],
+                            'Caution', HEAT_ZONE_COLORS['Caution'],
+                            'Normal / Safe', HEAT_ZONE_COLORS['Normal / Safe'],
+                            '#9ca3af'
+                        ],
+                        'fill-opacity': 0.55
+                    }
+                });
 
-            map.addLayer({
-                id: 'heat-risk-zones-outline',
-                type: 'line',
-                source: 'heat-risk-zones',
-                layout: {
-                    visibility: 'none'
-                },
-                paint: {
-                    'line-color': [
-                        'match', ['get', 'risk_class'],
-                        'Low Risk', HEAT_ZONE_COLORS['Low Risk'],
-                        'Moderate Risk', HEAT_ZONE_COLORS['Moderate Risk'],
-                        'High Risk', HEAT_ZONE_COLORS['High Risk'],
-                        '#6b7280'
-                    ],
-                    'line-width': 1.5,
-                    'line-opacity': 0.9
-                }
-            });
+                map.addLayer({
+                    id: 'heat-risk-zones-outline',
+                    type: 'line',
+                    source: 'heat-risk-zones',
+                    layout: {
+                        visibility: 'visible'
+                    },
+                    paint: {
+                        'line-color': '#000000',
+                        'line-width': 1,
+                        'line-opacity': 0.3
+                    }
+                });
+            }
+
+            heatZonesVisible = true;
+            const toggleBtn = document.getElementById('toggleHeatZonesBtn');
+            if (toggleBtn) toggleBtn.classList.add('active');
 
             addHeatZoneClickInteraction();
             populateHeatZoneLegendPanel();
@@ -723,7 +757,7 @@ function toggleHeatZonesLayer() {
         toggleBtn.classList.toggle('active', heatZonesVisible);
     }
 
-    showMessage(heatZonesVisible ? 'Heat risk zones shown' : 'Heat risk zones hidden');
+    showMessage(heatZonesVisible ? 'Human thermal stress zones shown' : 'Human thermal stress zones hidden');
 }
 
 function addHeatZoneClickInteraction() {
@@ -738,32 +772,72 @@ function addHeatZoneClickInteraction() {
             activeComicPopup.remove();
         }
 
-        const riskClass = props.risk_class;
+        const riskClass = props.risk_class || 'Normal / Safe';
         const badgeBg = HEAT_ZONE_COLORS[riskClass] || '#9ca3af';
         const classInfo = heatZoneLegendData && heatZoneLegendData.zones
             ? heatZoneLegendData.zones[riskClass]
             : null;
 
-        const advisoryListHTML = classInfo
+        const advisoryListHTML = (classInfo && classInfo.advisory)
             ? classInfo.advisory.map(line => `<li>${line}</li>`).join('')
             : '<li>No advisory data available.</li>';
 
+        const vulnClass = props.vulnerability_class || 'N/A';
+        const vulnColor = VULNERABILITY_COLORS[vulnClass] || '#9ca3af';
+
+        const overallRisk = props.overall_risk || 'N/A';
+        const overallStyle = OVERALL_RISK_STYLE[overallRisk] || { emoji: '⚪', color: '#9ca3af' };
+        const overallEmoji = props.overall_risk_emoji || overallStyle.emoji;
+
+        const paramRows = [
+            ['IMD Heat Index', props.HI_IMD != null ? `${props.HI_IMD}°C` : 'N/A'],
+            ['Air temperature', props.air_temp != null ? `${props.air_temp}°C` : 'N/A'],
+            ['Relative humidity', props.rel_humidity != null ? `${props.rel_humidity}%` : 'N/A'],
+            ['LST', props.LST != null ? `${props.LST}°C` : 'N/A'],
+            ['NDVI', props.NDVI != null ? props.NDVI : 'N/A']
+        ];
+
+        const paramRowsHTML = paramRows.map(([label, value]) => `
+            <tr>
+                <td style="padding:3px 6px 3px 0; font-weight:700; color:#334155;">${label}</td>
+                <td style="padding:3px 0; text-align:right; font-weight:800;">${value}</td>
+            </tr>
+        `).join('');
+
         const popupHTML = `
-            <div style="line-height:1.35; font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;">
-                <div class="comic-badge" style="background:${badgeBg};">
-                    🌡️ ${riskClass}
+            <div style="line-height:1.35; font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; min-width:220px;">
+                <div style="font-weight:900; font-size:15px; margin-bottom:6px;">
+                    ${props.sector_id || 'Sector'}
                 </div>
 
-                <div style="font-weight:900; font-size:15px; margin-bottom:4px;">
-                    ${props.zone_name || 'Heat Zone'}
-                </div>
+                <table style="width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:8px;">
+                    ${paramRowsHTML}
+                    <tr>
+                        <td style="padding:5px 6px 3px 0; font-weight:700; color:#334155; border-top:2px solid #000;">IMD Hazard Class</td>
+                        <td style="padding:5px 0 3px 0; text-align:right; border-top:2px solid #000;">
+                            <span style="background:${badgeBg}; color:#fff; font-weight:800; padding:2px 8px; border-radius:10px; font-size:10.5px;">${riskClass}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 6px 3px 0; font-weight:700; color:#334155;">Vulnerability</td>
+                        <td style="padding:3px 0; text-align:right;">
+                            <span style="background:${vulnColor}; color:#fff; font-weight:800; padding:2px 8px; border-radius:10px; font-size:10.5px;">${vulnClass}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px 6px 3px 0; font-weight:900; border-top:2px solid #000;">Overall risk</td>
+                        <td style="padding:5px 0 3px 0; text-align:right; font-weight:900; color:${overallStyle.color}; border-top:2px solid #000;">
+                            ${overallEmoji} ${overallRisk}
+                        </td>
+                    </tr>
+                </table>
 
-                <div style="font-size:11px; font-weight:700; color:#111; margin-bottom:8px;">
+                <div style="font-size:11px; font-weight:700; color:#111; margin-bottom:6px;">
                     ${classInfo ? classInfo.summary : ''}
                 </div>
 
                 <div style="font-size:10.5px; font-weight:700; background:#fff7ed; padding:6px; border:2px solid #000; border-radius:6px;">
-                    <b>Precautions:</b>
+                    <b>IMD Advisories & Precautions:</b>
                     <ul style="margin:4px 0 0 16px; padding:0;">
                         ${advisoryListHTML}
                     </ul>
@@ -797,38 +871,15 @@ function addHeatZoneClickInteraction() {
     });
 }
 
-// ------------------------------------------------------------
-// Sidebar section: legend + toggle button
-// ------------------------------------------------------------
-// Built dynamically so this feature doesn't depend on you having
-// pre-added matching markup in your HTML. If you'd rather hand-place
-// this in your sidebar's HTML directly, just move the innerHTML below
-// into a <div id="heatZoneSection"></div> in your sidebar and delete
-// the injection code — populateHeatZoneLegendPanel() will still work
-// as long as that container id exists.
-
 function buildHeatZoneSidebarSection() {
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar || document.getElementById('heatZoneSection')) return;
-
-    const section = document.createElement('div');
-    section.id = 'heatZoneSection';
-    section.className = 'sidebar-section';
-    section.innerHTML = `
-        <h3 style="margin-bottom:6px;">Human Heat Index</h3>
-        <button id="toggleHeatZonesBtn" class="sidebar-btn">
-            Show Heat Risk Zones
-        </button>
-        <div id="heatZoneLegendList" style="margin-top:10px; font-size:12px;"></div>
-    `;
-    sidebar.appendChild(section);
-
+    // Attach event listener to the existing HTML button
     const toggleBtn = document.getElementById('toggleHeatZonesBtn');
-    if (toggleBtn) {
+    if (toggleBtn && !toggleBtn.dataset.initialized) {
         toggleBtn.addEventListener('click', toggleHeatZonesLayer);
+        toggleBtn.dataset.initialized = "true"; // Prevents multiple bindings
     }
 
-    // If the legend data already arrived before the sidebar was built, render it now
+    // Populate the legend list if data is loaded
     if (heatZoneLegendData) {
         populateHeatZoneLegendPanel();
     }
@@ -838,7 +889,7 @@ function populateHeatZoneLegendPanel() {
     const listEl = document.getElementById('heatZoneLegendList');
     if (!listEl || !heatZoneLegendData || !heatZoneLegendData.zones) return;
 
-    const order = ['High Risk', 'Moderate Risk', 'Low Risk'];
+    const order = ['Extreme Danger', 'Danger', 'Extreme Caution', 'Caution', 'Normal / Safe'];
 
     listEl.innerHTML = order.map(riskClass => {
         const info = heatZoneLegendData.zones[riskClass];

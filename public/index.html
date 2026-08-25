@@ -108,6 +108,63 @@
           </div>
         </section>
 
+        <div class="section-divider"></div>
+
+        <!-- 5. IMD HEAT RISK ZONES & METHODOLOGY -->
+        <section id="heatZoneSection" class="sidebar-section">
+          <div class="section-heading"><span class="eyebrow">HEAT HAZARD ASSESSMENT</span></div>
+          <h3 style="margin-bottom:6px; color:#f8fafc;">IMD Heat Risk Alert Zones</h3>
+          <button id="toggleHeatZonesBtn" class="sidebar-btn active">
+            Show Thermal Stress Zones
+          </button>
+          
+          <!-- Dynamic Legend Panel Populated by app.js -->
+          <div id="heatZoneLegendList" style="margin-top:10px; font-size:12px;"></div>
+
+          <!-- Model Methodology & Formulas Disclaimer -->
+          <div id="heatZoneDisclaimer" style="
+            margin-top: 14px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border-left: 3px solid #3b82f6;
+            border-radius: 6px;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #cbd5e1;
+          ">
+            <div style="font-weight: 800; margin-bottom: 6px; color: #f8fafc; font-size: 11.5px; display: flex; align-items: center; gap: 4px;">
+              <span>ℹ️</span> Model Methodology & Formulas
+            </div>
+            
+            <div style="margin-bottom: 8px;">
+              <strong style="color: #e2e8f0;">1. IMD Heat Index (HI):</strong><br>
+              <code style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; display: inline-block; margin-top: 2px;">
+                HI = T + 0.55 × (1 - 0.01 × RH) × (T - 14.5)
+              </code><br>
+              <span style="font-size: 10px; opacity: 0.8;">Where <b>T</b> = Air Temp (°C) and <b>RH</b> = Relative Humidity (%)</span>
+            </div>
+
+            <div style="margin-bottom: 8px;">
+              <strong style="color: #e2e8f0;">2. Vulnerability Score (V):</strong><br>
+              <code style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; display: inline-block; margin-top: 2px;">
+                V = (0.5 × LST_norm) + (0.5 × (1 - NDVI_norm))
+              </code><br>
+              <span style="font-size: 10px; opacity: 0.8;">Weighted combination of normalized Land Surface Temp & vegetation deficit.</span>
+            </div>
+
+            <div style="margin-bottom: 6px;">
+              <strong style="color: #e2e8f0;">3. Overall Risk Matrix:</strong><br>
+              <code style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; display: inline-block; margin-top: 2px;">
+                Risk = Hazard Class × Vulnerability Score
+              </code>
+            </div>
+
+            <div style="margin-top: 8px; font-size: 9.5px; opacity: 0.7; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; font-style: italic;">
+              Disclaimer: Model estimates are generated using satellite thermal observations and empirical atmospheric equations for micro-climate screening.
+            </div>
+          </div>
+        </section>
+
       </aside>
     </main>
     <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>

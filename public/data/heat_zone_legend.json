@@ -1,43 +1,50 @@
 {
-  "generated_thresholds": {
-    "low_moderate": 0.337075659982211,
-    "moderate_high": 0.3842560946172177
+  "thresholds_celsius": {
+    "safe_moderate": 26.7,
+    "moderate_high": 29.4,
+    "high_extreme": 32.2
   },
-  "conditions_used": {
-    "peak_window_local": "12:00-15:00",
-    "mean_air_temp_c": 34.9,
-    "mean_relative_humidity_pct": 42.3,
-    "mean_wind_speed_ms": 3.9,
-    "mean_solar_radiation_wm2": 821.0,
-    "heat_index_c": 37.8
+  "baseline_conditions": {
+    "air_temp_c": 34.9,
+    "relative_humidity_pct": 42.3,
+    "wind_speed_ms": 3.9,
+    "solar_radiation_wm2": 821.0,
+    "mean_wbgt_c": 28.9
   },
   "zones": {
-    "Low Risk": {
+    "Safe": {
       "color": "#16a34a",
-      "summary": "Comfortable thermal conditions. Safe for normal outdoor activity.",
+      "summary": "Low thermal stress. Normal outdoor activity safe.",
       "advisory": [
-        "No special precautions needed for most people.",
-        "Still carry water during peak afternoon hours (12-3 PM).",
-        "Good zone for outdoor gatherings, sports, and events."
+        "Normal outdoor activities are safe for all groups.",
+        "Maintain baseline hydration during extended exposure."
       ]
     },
-    "Moderate Risk": {
+    "Moderate Heat Stress": {
       "color": "#f59e0b",
-      "summary": "Elevated heat stress, especially for prolonged exposure.",
+      "summary": "Moderate thermal stress. Caution for unacclimatized individuals.",
       "advisory": [
-        "Limit continuous outdoor activity to under 45 minutes without shade breaks.",
-        "Stay hydrated; avoid strenuous activity between 12-3 PM.",
-        "Vulnerable groups (elderly, young children, those with health conditions) should take extra breaks."
+        "Limit continuous high-intensity work or sports to 45 minutes.",
+        "Schedule regular water breaks in shaded zones.",
+        "Monitor outdoor physical workers and vulnerable populations."
       ]
     },
-    "High Risk": {
-      "color": "#b91c1c",
-      "summary": "Significant heat stress. Prolonged exposure can be dangerous.",
+    "High Heat Stress": {
+      "color": "#ea580c",
+      "summary": "High thermal stress. Danger of heat exhaustion with prolonged exposure.",
       "advisory": [
-        "Avoid strenuous outdoor activity, especially between 11 AM - 4 PM.",
-        "Seek shade or air-conditioned spaces frequently.",
-        "Watch for signs of heat exhaustion: dizziness, nausea, excessive sweating.",
-        "Vulnerable individuals should avoid this zone during peak hours entirely."
+        "Limit outdoor strenuous exertion to 30 minutes per hour.",
+        "Mandate shade resting periods and active fluid intake.",
+        "Avoid concrete quads and unshaded transit paths during peak hours."
+      ]
+    },
+    "Extreme Heat Stress": {
+      "color": "#b91c1c",
+      "summary": "Extreme thermal stress. High risk of heat stroke during peak exposure.",
+      "advisory": [
+        "Cancel or reschedule non-essential outdoor physical activity.",
+        "Rest breaks must equal or exceed work duration in air-conditioned spaces.",
+        "Immediate heat-illness protocol required for outdoor personnel."
       ]
     }
   }
