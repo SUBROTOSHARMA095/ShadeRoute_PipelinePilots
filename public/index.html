@@ -9,7 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" rel="stylesheet">
     <link href="styles.css" rel="stylesheet">
-
   </head>
   <body>
     <main class="app">
@@ -22,7 +21,6 @@
               <div><div class="brand-name">ShadeRoute</div><div class="brand-tagline">Urban Exposure Intelligence</div></div>
             </div>
           </div>
-          <div class="topbar-right"><button class="mode-button active">Explore</button><button class="mode-button">Authority</button></div>
         </header>
 
         <div class="map-location-pill"><span class="live-dot"></span>Bhubaneswar</div>
@@ -31,73 +29,85 @@
           <button class="map-control">+</button>
           <button class="map-control">−</button>
           <div class="control-divider"></div>
-          <button class="map-control">⌖</button>
+          <button id="northButton" class="map-control compass-control" type="button" aria-label="Reset map to north" title="Reset map to north"><span id="compassArrow" class="compass-arrow">↑</span><span class="compass-label">N</span></button>
         </div>
-
         <div class="map-attribution">Map data · Google Maps Platform</div>
       </section>
 
       <aside id="sidebar" class="sidebar">
         <div class="sidebar-header">
-          <div><span class="eyebrow">YOUR JOURNEY</span><h1>Find a safer route.</h1></div>
+          <div><span class="eyebrow">LOCALITY INSIGHTS</span><h1>Build a cooler locality.</h1></div>
           <button id="closeSidebar" class="icon-button close-button">×</button>
         </div>
 
+        <!-- 1. INTERVENTION SCENARIOS -->
         <section class="sidebar-section">
-          <label class="field-label">FROM</label>
-          <div class="search-field">
-            <span class="field-icon current-icon">●</span>
-            <input id="originInput" placeholder="Current location" autocomplete="off">
-            <button class="field-action">⌖</button>
+          <div class="section-heading"><span class="eyebrow">INTERVENTION SCENARIOS</span><span class="optional">Simulate</span></div>
+          
+          <!-- Tree Scenario -->
+          <div class="scenario-card">
+            <div class="scenario-title" style="color: #10b981;">🌳 Tree Planting Scenario</div>
+            <p class="scenario-desc">Enter the no. of trees you are planning to plant to get the recommended locations, targeting high heat and covering canopy deficient points.</p>
+            <div class="scenario-controls">
+              <input id="treeCount" type="number" min="1" value="250" class="input-number">
+              <button id="recommendTreesBtn" class="action-btn tree-btn" type="button">Recommend Trees</button>
+            </div>
           </div>
-          <div class="route-line"><span></span></div>
-          <label class="field-label">TO</label>
-          <div class="search-field">
-            <span class="field-icon destination-icon">●</span>
-            <input id="destinationInput" placeholder="Search destination" autocomplete="off">
-            <button class="field-action">⌕</button>
+
+          <!-- Mist Sprayer Scenario -->
+          <div class="scenario-card">
+            <div class="scenario-title" style="color: #00e5ff;">💧 Mist Sprayer Scenario</div>
+            <p class="scenario-desc">Enter the no. of mist sprayers you are planning to install to get the recommended locations evenly distributed along walking paths.</p>
+            <div class="scenario-controls">
+              <input id="mistSprayerCount" type="number" min="1" value="50" class="input-number">
+              <button id="recommendMistBtn" class="action-btn mist-btn" type="button">Recommend Sprayers</button>
+            </div>
           </div>
         </section>
 
         <div class="section-divider"></div>
 
+        <!-- 2. SPATIAL DISCLAIMER -->
+        <div class="disclaimer-box">
+          ⚠️ <strong>Spatial Disclaimer:</strong> Grid points represent estimated intervention locations aggregated within a <strong>10m × 10m</strong> spatial resolution grid across campus boundaries.
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- 3. MAP LEGEND -->
         <section class="sidebar-section">
-          <div class="section-heading"><span class="eyebrow">ROUTE PRIORITY</span><span class="optional">Choose one</span></div>
-          <div class="route-options">
-            <button class="route-option selected"><div class="option-radio"></div><div><strong>Balanced</strong><span>Balance travel time and exposure</span></div></button>
-            <button class="route-option"><div class="option-radio"></div><div><strong>Coolest</strong><span>Minimize heat exposure</span></div></button>
-            <button class="route-option"><div class="option-radio"></div><div><strong>Cleanest air</strong><span>Minimize air-quality exposure</span></div></button>
+          <div class="section-heading"><span class="eyebrow">MAP LEGEND</span></div>
+          <div class="legend-grid">
+            <div class="legend-item"><span class="swatch" style="background: #dc2626;"></span><span>Very High Priority</span></div>
+            <div class="legend-item"><span class="swatch" style="background: #f97316;"></span><span>High Priority</span></div>
+            <div class="legend-item"><span class="swatch" style="background: #facc15;"></span><span>Moderate Priority</span></div>
+            <div class="legend-item"><span class="swatch" style="background: #10b981;"></span><span>Low Priority</span></div>
+            <div class="legend-item"><span class="swatch" style="background: #3b82f6;"></span><span>Very Low Priority</span></div>
+            <div class="legend-item"><span class="swatch" style="background: #00ffff;"></span><span>Mist Sprayer (Path)</span></div>
           </div>
-          <button id="findRouteButton" class="primary-button">Find safer route <span>→</span></button>
+          <div class="legend-line-item">
+            <span class="paths"></span>
+            <span>Pedestrian Paths</span>
+            <span class="roads"></span>
+            <span>Roads</span>
+          </div>
         </section>
 
         <div class="section-divider"></div>
 
+        <!-- 4. METRIC ABBREVIATIONS -->
         <section class="sidebar-section">
-          <div class="section-heading"><span class="eyebrow">MAP LAYERS</span><span class="optional">Visualize</span></div>
-          <div class="layer-list">
-            <label class="layer-row"><div class="layer-info"><span class="layer-swatch heat"></span><div><strong>Heat exposure</strong><small>Surface temperature</small></div></div><input type="checkbox" class="toggle"><span class="toggle-ui"></span></label>
-            <label class="layer-row"><div class="layer-info"><span class="layer-swatch aqi"></span><div><strong>Air quality</strong><small>AQI exposure</small></div></div><input type="checkbox" class="toggle"><span class="toggle-ui"></span></label>
-            <label class="layer-row"><div class="layer-info"><span class="layer-swatch shade"></span><div><strong>Shade availability</strong><small>Tree & canopy coverage</small></div></div><input type="checkbox" class="toggle"><span class="toggle-ui"></span></label>
-            <label class="layer-row"><div class="layer-info"><span class="layer-swatch traffic"></span><div><strong>Traffic</strong><small>Road congestion</small></div></div><input type="checkbox" class="toggle"><span class="toggle-ui"></span></label>
+          <div class="section-heading"><span class="eyebrow">METRIC ABBREVIATIONS</span></div>
+          <div class="glossary-list">
+            <div><strong>LST:</strong> Land Surface Temperature (°C)</div>
+            <div><strong>Veg:</strong> Vegetation Canopy Fraction (0–100%)</div>
+            <div><strong>NDVI:</strong> Normalized Difference Vegetation Index</div>
+            <div><strong>NDBI:</strong> Normalized Difference Built-up Index</div>
+            <div><strong>BSI:</strong> Bare Soil Index</div>
+            <div><strong>NDWI:</strong> Normalized Difference Water Index</div>
           </div>
         </section>
 
-        <div class="section-divider"></div>
-
-        <section class="sidebar-section">
-          <div class="section-heading"><span class="eyebrow">CURRENT CONDITIONS</span><span class="live-label"><span class="live-dot"></span> Live</span></div>
-          <div class="conditions-grid">
-            <div class="condition-card"><span class="condition-label">TEMP</span><strong>—</strong><small>°C</small></div>
-            <div class="condition-card"><span class="condition-label">AQI</span><strong>—</strong><small>Index</small></div>
-            <div class="condition-card"><span class="condition-label">SHADE</span><strong>—</strong><small>Coverage</small></div>
-          </div>
-        </section>
-
-        <section class="exposure-card">
-          <div><span class="eyebrow">EXPOSURE SCORE</span><p>Choose a destination to calculate environmental exposure.</p></div>
-          <div class="score-placeholder">—</div>
-        </section>
       </aside>
     </main>
     <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>

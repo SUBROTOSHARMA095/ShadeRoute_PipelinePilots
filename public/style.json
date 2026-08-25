@@ -1,7 +1,5 @@
 {
   "version": 8,
-  "name": "S18 Campus Base",
-
   "sources": {
     "osm": {
       "type": "raster",
@@ -12,7 +10,6 @@
       "attribution": "© OpenStreetMap contributors"
     }
   },
-
   "layers": [
     {
       "id": "osm",

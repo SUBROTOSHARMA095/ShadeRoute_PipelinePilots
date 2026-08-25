@@ -1,0 +1,7 @@
+zone_id,zone_name,longitude,latitude,LST,NDVI,sWBGT,heat_risk_class,is_inside_campus,intervention_type,priority_score
+ZONE_A1,SOA ITER Main Academic Sector,85.803,20.251,36.5,0.28,45.8,Severe Risk,True,Tree Planting & Mist Sprayers,76.6
+ZONE_A2,Jagamara Academic & Hostel Zone,85.809,20.251,38.2,0.18,46.7,Severe Risk,True,Tree Canopy Expansion,83.4
+ZONE_A3,Khandagiri Commercial Transit Corridor,85.797,20.251,41.8,0.09,48.8,Severe Risk,False,None,0.0
+ZONE_B1,Gandamunda Green Buffer Sector,85.803,20.257,32.4,0.46,43.4,Severe Risk,False,None,0.0
+ZONE_B2,SOA North Campus & Athletic Hub,85.809,20.257,37.1,0.22,46.1,Severe Risk,True,Mist Sprayers,80.2
+ZONE_B3,Baramunda South Commercial Grid,85.797,20.257,42.5,0.07,49.2,Severe Risk,False,None,0.0
