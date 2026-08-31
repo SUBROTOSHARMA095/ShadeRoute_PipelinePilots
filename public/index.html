@@ -36,134 +36,126 @@
 
       <aside id="sidebar" class="sidebar">
         <div class="sidebar-header">
-          <div><span class="eyebrow">LOCALITY INSIGHTS</span><h1>Build a cooler locality.</h1></div>
+          <div>
+            <span class="eyebrow">LOCALITY INSIGHTS</span>
+            <h1 id="sidebarTitle">Build a cooler locality.</h1>
+          </div>
           <button id="closeSidebar" class="icon-button close-button">×</button>
         </div>
 
-        <!-- 1. INTERVENTION SCENARIOS -->
-        <section class="sidebar-section">
-          <div class="section-heading"><span class="eyebrow">INTERVENTION SCENARIOS</span><span class="optional">Simulate</span></div>
-          
-          <!-- Tree Scenario -->
-          <div class="scenario-card">
-            <div class="scenario-title" style="color: #10b981;">🌳 Tree Planting Scenario</div>
-            <p class="scenario-desc">Enter the no. of trees you are planning to plant to get the recommended locations, targeting high heat and covering canopy deficient points.</p>
-            <div class="scenario-controls">
-              <input id="treeCount" type="number" min="1" value="250" class="input-number">
-              <button id="recommendTreesBtn" class="action-btn tree-btn" type="button">Recommend Trees</button>
-            </div>
-          </div>
-
-          <!-- Mist Sprayer Scenario -->
-          <div class="scenario-card">
-            <div class="scenario-title" style="color: #00e5ff;">💧 Mist Sprayer Scenario</div>
-            <p class="scenario-desc">Enter the no. of mist sprayers you are planning to install to get the recommended locations evenly distributed along walking paths.</p>
-            <div class="scenario-controls">
-              <input id="mistSprayerCount" type="number" min="1" value="50" class="input-number">
-              <button id="recommendMistBtn" class="action-btn mist-btn" type="button">Recommend Sprayers</button>
-            </div>
-          </div>
-        </section>
-
-        <div class="section-divider"></div>
-
-        <!-- 2. SPATIAL DISCLAIMER -->
-        <div class="disclaimer-box">
-          ⚠️ <strong>Spatial Disclaimer:</strong> Grid points represent estimated intervention locations aggregated within a <strong>10m × 10m</strong> spatial resolution grid across campus boundaries.
+        <!-- MODE SWITCHER TABS -->
+        <div class="mode-switcher">
+          <button id="modeInterventionBtn" class="mode-tab active" onclick="setAppMode('intervention')">
+            🛠️ Intervention
+          </button>
+          <button id="modeHeatStressBtn" class="mode-tab" onclick="setAppMode('heatstress')">
+            🔥 Heat Stress Map
+          </button>
         </div>
 
-        <div class="section-divider"></div>
-
-        <!-- 3. MAP LEGEND -->
-        <section class="sidebar-section">
-          <div class="section-heading"><span class="eyebrow">MAP LEGEND</span></div>
-          <div class="legend-grid">
-            <div class="legend-item"><span class="swatch" style="background: #dc2626;"></span><span>Very High Priority</span></div>
-            <div class="legend-item"><span class="swatch" style="background: #f97316;"></span><span>High Priority</span></div>
-            <div class="legend-item"><span class="swatch" style="background: #facc15;"></span><span>Moderate Priority</span></div>
-            <div class="legend-item"><span class="swatch" style="background: #10b981;"></span><span>Low Priority</span></div>
-            <div class="legend-item"><span class="swatch" style="background: #3b82f6;"></span><span>Very Low Priority</span></div>
-            <div class="legend-item"><span class="swatch" style="background: #00ffff;"></span><span>Mist Sprayer (Path)</span></div>
-          </div>
-          <div class="legend-line-item">
-            <span class="paths"></span>
-            <span>Pedestrian Paths</span>
-            <span class="roads"></span>
-            <span>Roads</span>
-          </div>
-        </section>
-
-        <div class="section-divider"></div>
-
-        <!-- 4. METRIC ABBREVIATIONS -->
-        <section class="sidebar-section">
-          <div class="section-heading"><span class="eyebrow">METRIC ABBREVIATIONS</span></div>
-          <div class="glossary-list">
-            <div><strong>LST:</strong> Land Surface Temperature (°C)</div>
-            <div><strong>Veg:</strong> Vegetation Canopy Fraction (0–100%)</div>
-            <div><strong>NDVI:</strong> Normalized Difference Vegetation Index</div>
-            <div><strong>NDBI:</strong> Normalized Difference Built-up Index</div>
-            <div><strong>BSI:</strong> Bare Soil Index</div>
-            <div><strong>NDWI:</strong> Normalized Difference Water Index</div>
-          </div>
-        </section>
-
-        <div class="section-divider"></div>
-
-        <!-- 5. IMD HEAT RISK ZONES & METHODOLOGY -->
-        <section id="heatZoneSection" class="sidebar-section">
-          <div class="section-heading"><span class="eyebrow">HEAT HAZARD ASSESSMENT</span></div>
-          <h3 style="margin-bottom:6px; color:#f8fafc;">IMD Heat Risk Alert Zones</h3>
-          <button id="toggleHeatZonesBtn" class="sidebar-btn active">
-            Show Thermal Stress Zones
-          </button>
-          
-          <!-- Dynamic Legend Panel Populated by app.js -->
-          <div id="heatZoneLegendList" style="margin-top:10px; font-size:12px;"></div>
-
-          <!-- Model Methodology & Formulas Disclaimer -->
-          <div id="heatZoneDisclaimer" style="
-            margin-top: 14px;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.04);
-            border-left: 3px solid #3b82f6;
-            border-radius: 6px;
-            font-size: 11px;
-            line-height: 1.4;
-            color: #cbd5e1;
-          ">
-            <div style="font-weight: 800; margin-bottom: 6px; color: #f8fafc; font-size: 11.5px; display: flex; align-items: center; gap: 4px;">
-              <span>ℹ️</span> Model Methodology & Formulas
-            </div>
+        <!-- ================= INTERVENTION MODE CONTENT ================= -->
+        <div id="interventionModeContent" class="mode-content active">
+          <!-- 1. INTERVENTION SCENARIOS -->
+          <section class="sidebar-section">
+            <div class="section-heading"><span class="eyebrow">INTERVENTION SCENARIOS</span><span class="optional">Simulate</span></div>
             
-            <div style="margin-bottom: 8px;">
-              <strong style="color: #e2e8f0;">1. IMD Heat Index (HI):</strong><br>
-              <code style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; display: inline-block; margin-top: 2px;">
-                HI = T + 0.55 × (1 - 0.01 × RH) × (T - 14.5)
-              </code><br>
-              <span style="font-size: 10px; opacity: 0.8;">Where <b>T</b> = Air Temp (°C) and <b>RH</b> = Relative Humidity (%)</span>
+            <div class="scenario-card">
+              <div class="scenario-title" style="color: #10b981;">🌳 Tree Planting Scenario</div>
+              <p class="scenario-desc">Enter the no. of trees you are planning to plant to get the recommended locations.</p>
+              <div class="scenario-controls">
+                <input id="treeCount" type="number" min="1" value="250" class="input-number">
+                <button id="recommendTreesBtn" class="action-btn tree-btn" type="button">Recommend Trees</button>
+              </div>
             </div>
 
-            <div style="margin-bottom: 8px;">
-              <strong style="color: #e2e8f0;">2. Vulnerability Score (V):</strong><br>
-              <code style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; display: inline-block; margin-top: 2px;">
-                V = (0.5 × LST_norm) + (0.5 × (1 - NDVI_norm))
-              </code><br>
-              <span style="font-size: 10px; opacity: 0.8;">Weighted combination of normalized Land Surface Temp & vegetation deficit.</span>
+            <div class="scenario-card">
+              <div class="scenario-title" style="color: #00e5ff;">💧 Mist Sprayer Scenario</div>
+              <p class="scenario-desc">Enter the no. of mist sprayers to get recommendations along walking paths.</p>
+              <div class="scenario-controls">
+                <input id="mistSprayerCount" type="number" min="1" value="50" class="input-number">
+                <button id="recommendMistBtn" class="action-btn mist-btn" type="button">Recommend Sprayers</button>
+              </div>
             </div>
+          </section>
 
-            <div style="margin-bottom: 6px;">
-              <strong style="color: #e2e8f0;">3. Overall Risk Matrix:</strong><br>
-              <code style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; display: inline-block; margin-top: 2px;">
-                Risk = Hazard Class × Vulnerability Score
-              </code>
-            </div>
+          <div class="section-divider"></div>
 
-            <div style="margin-top: 8px; font-size: 9.5px; opacity: 0.7; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; font-style: italic;">
-              Disclaimer: Model estimates are generated using satellite thermal observations and empirical atmospheric equations for micro-climate screening.
-            </div>
+          <!-- 2. SPATIAL DISCLAIMER -->
+          <div class="disclaimer-box">
+            ⚠️ <strong>Spatial Disclaimer:</strong> Grid points represent estimated intervention locations aggregated within a <strong>10m × 10m</strong> grid.
           </div>
-        </section>
+
+          <div class="section-divider"></div>
+
+          <!-- 3. PRIORITY MAP LEGEND -->
+          <section class="sidebar-section">
+            <div class="section-heading"><span class="eyebrow">PRIORITY LEGEND</span></div>
+            <div class="legend-grid">
+              <div class="legend-item"><span class="swatch" style="background: #dc2626;"></span><span>Very High Priority</span></div>
+              <div class="legend-item"><span class="swatch" style="background: #f97316;"></span><span>High Priority</span></div>
+              <div class="legend-item"><span class="swatch" style="background: #facc15;"></span><span>Moderate Priority</span></div>
+              <div class="legend-item"><span class="swatch" style="background: #10b981;"></span><span>Low Priority</span></div>
+              <div class="legend-item"><span class="swatch" style="background: #3b82f6;"></span><span>Very Low Priority</span></div>
+              <div class="legend-item"><span class="swatch" style="background: #00ffff;"></span><span>Mist Sprayer (Path)</span></div>
+            </div>
+          </section>
+
+          <div class="section-divider"></div>
+
+          <!-- 4. METRIC ABBREVIATIONS -->
+          <section class="sidebar-section">
+            <div class="section-heading"><span class="eyebrow">METRIC ABBREVIATIONS</span></div>
+            <div class="glossary-list">
+              <div><strong>LST:</strong> Land Surface Temperature (°C)</div>
+              <div><strong>Veg:</strong> Vegetation Canopy Fraction (0–100%)</div>
+              <div><strong>NDVI:</strong> Normalized Difference Vegetation Index</div>
+              <div><strong>NDBI:</strong> Normalized Difference Built-up Index</div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ================= HEAT STRESS MAP MODE CONTENT ================= -->
+        <div id="heatStressModeContent" class="mode-content">
+          <section id="heatZoneSection" class="sidebar-section">
+            <div class="section-heading"><span class="eyebrow">HEAT HAZARD ASSESSMENT</span></div>
+            <h3 style="margin-bottom:6px; color:#f8fafc;">IMD Heat Risk Alert Zones</h3>
+            
+            <!-- Timeline Date Picker Container -->
+            <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 11px; color: var(--muted); font-weight: 600;">Select Date:</span>
+              <div id="datePickerContainer"></div>
+            </div>
+
+            <!-- Dynamic Legend List -->
+            <div id="heatZoneLegendList" style="margin-top:10px; font-size:12px;"></div>
+
+            <!-- Methodology -->
+            <div id="heatZoneDisclaimer" style="margin-top: 14px; padding: 10px; background: rgba(255, 255, 255, 0.04); border-left: 3px solid #3b82f6; border-radius: 6px; font-size: 11px; line-height: 1.4; color: #cbd5e1;">
+              <div style="font-weight: 800; margin-bottom: 6px; color: #f8fafc; font-size: 11.5px;">ℹ️ Model Methodology & Formulas</div>
+              
+              <div style="margin-bottom: 8px;">
+                <strong style="color: #e2e8f0;">1. IMD Heat Index (Rothfusz Regression):</strong><br>
+                <code style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; display: inline-block; margin-top: 2px; font-size: 10px;">
+                  HI = f(Air Temp °C, Relative Humidity %)
+                </code>
+              </div>
+
+              <div style="margin-bottom: 8px;">
+                <strong style="color: #e2e8f0;">2. Vulnerability Index (VI):</strong><br>
+                <code style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; display: inline-block; margin-top: 2px; font-size: 10px;">
+                  VI = 0.455(Population) + 0.364(Facilities) + 0.182(LowVeg)
+                </code>
+              </div>
+
+              <div>
+                <strong style="color: #e2e8f0;">3. Human Heat Stress Index (HHSI):</strong><br>
+                <code style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; display: inline-block; margin-top: 2px; font-size: 10px;">
+                  HHSI = HI × (1 + 0.30 × VI)
+                </code>
+              </div>
+            </div>
+          </section>
+        </div>
 
       </aside>
     </main>

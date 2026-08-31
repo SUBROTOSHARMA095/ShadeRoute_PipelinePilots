@@ -18,6 +18,81 @@ let heatZonesVisible = false;    // layer starts hidden until user toggles it
 let heatZoneManifest = null;     // parsed timeline/manifest.json (list of daily files)
 let currentHeatZoneDate = null;  // ISO date string ('YYYY-MM-DD') currently displayed
 
+// Mode State Tracker
+let currentMode = 'intervention'; // Default mode: 'intervention' or 'heatstress'
+
+function setAppMode(mode) {
+    currentMode = mode;
+
+    // 1. Toggle Active Tab and Panel States
+    const interventionBtn = document.getElementById('modeInterventionBtn');
+    const heatStressBtn = document.getElementById('modeHeatStressBtn');
+    const interventionContent = document.getElementById('interventionModeContent');
+    const heatStressContent = document.getElementById('heatStressModeContent');
+
+    if (interventionBtn && heatStressBtn && interventionContent && heatStressContent) {
+        if (mode === 'intervention') {
+            interventionBtn.classList.add('active');
+            heatStressBtn.classList.remove('active');
+            interventionContent.classList.add('active');
+            heatStressContent.classList.remove('active');
+        } else {
+            heatStressBtn.classList.add('active');
+            interventionBtn.classList.remove('active');
+            heatStressContent.classList.add('active');
+            interventionContent.classList.remove('active');
+        }
+    }
+
+    // 2. Remove Open Map Popups
+    if (typeof activeComicPopup !== 'undefined' && activeComicPopup) {
+        activeComicPopup.remove();
+    }
+
+    // 3. Update Visible Layers on Map
+    updateMapLayersForMode();
+}
+
+function updateMapLayersForMode() {
+    if (typeof map === 'undefined' || !map.isStyleLoaded()) return;
+
+    const isIntervention = currentMode === 'intervention';
+    const isHeatStress = currentMode === 'heatstress';
+
+    // Priority Grid Layers (Intervention Mode)
+    if (map.getLayer('priority-grid')) {
+        map.setLayoutProperty('priority-grid', 'visibility', isIntervention ? 'visible' : 'none');
+    }
+    if (map.getLayer('priority-grid-highlight')) {
+        map.setLayoutProperty('priority-grid-highlight', 'visibility', isIntervention ? 'visible' : 'none');
+    }
+
+    // Recommended Map Markers (Intervention Mode)
+    if (typeof treeMarkers !== 'undefined') {
+        treeMarkers.forEach(marker => {
+            const el = marker.getElement();
+            if (el) el.style.display = isIntervention ? 'block' : 'none';
+        });
+    }
+    if (typeof mistMarkers !== 'undefined') {
+        mistMarkers.forEach(marker => {
+            const el = marker.getElement();
+            if (el) el.style.display = isIntervention ? 'block' : 'none';
+        });
+    }
+
+    // Heat Risk Polygon Layers (Heat Stress Mode)
+    if (map.getLayer('heat-risk-zones-fill')) {
+        map.setLayoutProperty('heat-risk-zones-fill', 'visibility', isHeatStress ? 'visible' : 'none');
+    }
+    if (map.getLayer('heat-risk-zones-outline')) {
+        map.setLayoutProperty('heat-risk-zones-outline', 'visibility', isHeatStress ? 'visible' : 'none');
+    }
+}
+
+// Bind setAppMode directly to window so HTML inline onclick="setAppMode(...)" handlers can execute it
+window.setAppMode = setAppMode;
+
 const map = new maplibregl.Map({
     container: 'map',
     style: '/style.json'
@@ -208,14 +283,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (treeBtn) treeBtn.addEventListener("click", recommendTreeLocations);
     if (mistBtn) mistBtn.addEventListener("click", recommendMistSprayerLocations);
 
-    const suggestionAction = document.getElementById("suggestionAction");
-    if (suggestionAction) {
-        suggestionAction.addEventListener("click", function () {
-            showMessage("Prioritize native trees near busy walking areas and public spaces");
-        });
-    }
-
-    buildHeatZoneSidebarSection();
 });
 
 const mapControls = document.querySelectorAll(".map-control");
@@ -728,7 +795,7 @@ function initHeatZoneLayers(zonesGeoJSON) {
             type: 'fill',
             source: 'heat-risk-zones',
             layout: {
-                visibility: 'visible'
+                visibility: 'none'
             },
             paint: {
                 // Colored by hhsi_class (Human Heat Stress Index — heat +
@@ -753,7 +820,7 @@ function initHeatZoneLayers(zonesGeoJSON) {
             type: 'line',
             source: 'heat-risk-zones',
             layout: {
-                visibility: 'visible'
+                visibility: 'none'
             },
             paint: {
                 'line-color': '#000000',
@@ -776,39 +843,27 @@ function initHeatZoneLayers(zonesGeoJSON) {
 // dates straight from manifest.json rather than hardcoding a range, so it
 // stays correct if the model is re-run with a different window later.
 function buildHeatZoneDatePicker() {
-    if (!heatZoneManifest || !heatZoneManifest.dates || !heatZoneManifest.dates.length) {
-        return; // timeline/manifest.json not present yet — skip silently, plain layer still works
-    }
+    if (!heatZoneManifest || !heatZoneManifest.dates || !heatZoneManifest.dates.length) return;
 
     let select = document.getElementById('heatZoneDateSelect');
     if (!select) {
         select = document.createElement('select');
         select.id = 'heatZoneDateSelect';
-        select.title = 'Select date for thermal stress data';
         select.style.cssText = `
-            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+            font-family: Inter, sans-serif;
             font-weight: 700;
-            font-size: 12px;
+            font-size: 11px;
             padding: 4px 8px;
-            border: 2px solid #000;
-            border-radius: 8px;
-            background: #fff;
-            margin-left: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.4);
+            color: #fff;
             cursor: pointer;
         `;
 
-        // Try to sit it right next to the existing heat-zone toggle button;
-        // if that button isn't found in this page's markup, fall back to a
-        // fixed-position control in the corner so it's still usable.
-        const toggleBtn = document.getElementById('toggleHeatZonesBtn');
-        if (toggleBtn && toggleBtn.parentNode) {
-            toggleBtn.parentNode.insertBefore(select, toggleBtn.nextSibling);
-        } else {
-            select.style.position = 'fixed';
-            select.style.top = '12px';
-            select.style.right = '12px';
-            select.style.zIndex = 1000;
-            document.body.appendChild(select);
+        const container = document.getElementById('datePickerContainer');
+        if (container) {
+            container.appendChild(select);
         }
 
         select.addEventListener('change', () => {
@@ -833,31 +888,6 @@ function buildHeatZoneDatePicker() {
         return `<option value="${d.date}">${label}</option>`;
     }).join('');
     select.value = currentHeatZoneDate || heatZoneManifest.today;
-}
-
-function toggleHeatZonesLayer() {
-    if (!map.getLayer('heat-risk-zones-fill')) {
-        showMessage('Heat zone data not loaded yet');
-        return;
-    }
-
-    heatZonesVisible = !heatZonesVisible;
-    const visibility = heatZonesVisible ? 'visible' : 'none';
-
-    map.setLayoutProperty('heat-risk-zones-fill', 'visibility', visibility);
-    map.setLayoutProperty('heat-risk-zones-outline', 'visibility', visibility);
-
-    const toggleBtn = document.getElementById('toggleHeatZonesBtn');
-    if (toggleBtn) {
-        toggleBtn.classList.toggle('active', heatZonesVisible);
-    }
-
-    const dateSelect = document.getElementById('heatZoneDateSelect');
-    if (dateSelect) {
-        dateSelect.style.display = heatZonesVisible ? '' : 'none';
-    }
-
-    showMessage(heatZonesVisible ? 'Human thermal stress zones shown' : 'Human thermal stress zones hidden');
 }
 
 function addHeatZoneClickInteraction() {
@@ -889,10 +919,10 @@ function addHeatZoneClickInteraction() {
         // display choice, not derived from the model's own class names —
         // adjust freely.
         const THERMAL_RISK_LABEL = {
-            'Extreme Danger': 'EXTREME',
-            'Danger': 'DANGER',
-            'Extreme Caution': 'CAUTION+',
-            'Caution': 'CAUTION',
+            'Extreme Danger': 'Extreme Danger',
+            'Danger': 'Danger',
+            'Extreme Caution': 'Extreme Caution',
+            'Caution': 'Caution',
             'Normal / Safe': 'SAFE'
         };
         const thermalRiskLabel = THERMAL_RISK_LABEL[hhsiClass] || hhsiClass.toUpperCase();
@@ -985,20 +1015,6 @@ function addHeatZoneClickInteraction() {
     map.on('mouseleave', 'heat-risk-zones-fill', () => {
         map.getCanvas().style.cursor = '';
     });
-}
-
-function buildHeatZoneSidebarSection() {
-    // Attach event listener to the existing HTML button
-    const toggleBtn = document.getElementById('toggleHeatZonesBtn');
-    if (toggleBtn && !toggleBtn.dataset.initialized) {
-        toggleBtn.addEventListener('click', toggleHeatZonesLayer);
-        toggleBtn.dataset.initialized = "true"; // Prevents multiple bindings
-    }
-
-    // Populate the legend list if data is loaded
-    if (heatZoneLegendData) {
-        populateHeatZoneLegendPanel();
-    }
 }
 
 function populateHeatZoneLegendPanel() {
