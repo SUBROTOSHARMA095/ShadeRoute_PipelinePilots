@@ -1,6 +1,6 @@
 {
 "type": "FeatureCollection",
-"name": "heat_risk_zones",
+"name": "heat_risk_zones_2026-05-12",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
 "features": [
 { "type": "Feature", "properties": { "sector_id": "SEC-A01", "area_m2": 900.0, "LST": 38.1, "NDVI": 0.3, "vegetation_cover_pct": 14.8, "vulnerability_index": 0.23, "vulnerability_class": "Low", "zone_type": "neighbourhood", "age_vulnerable_share": 0.222, "population_density_per_km2": 676.1, "vulnerable_population_density_per_km2": 150.1, "population_density_class": "Low", "population_sensitivity": 0.022, "dist_hospital_m": 1717.0, "dist_hospital_km": 1.72, "dist_school_m": 660.8, "dist_park_m": 1304.7, "sensitive_facility_score": 0.111, "low_greenery_score": 0.987, "outdoor_exposure_score": 0.434, "outdoor_exposure": "High", "air_temp": 30.01, "rel_humidity": 68.79, "wind_speed": 3.42, "solar_rad_W_m2": 282.0, "HI_IMD_mean": 34.06, "HI_IMD": 38.81, "HHSI_mean": 36.41, "HHSI_max": 41.49, "risk_class": "Caution", "hhsi_class": "Extreme Caution", "overall_risk": "Moderate", "overall_risk_emoji": "🟡" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 85.789607815279396, 20.240996131765058 ], [ 85.789605716115616, 20.24126716420573 ], [ 85.789318547850129, 20.241265182741881 ], [ 85.789320647511659, 20.240994150330007 ], [ 85.789607815279396, 20.240996131765058 ] ] ] } },
