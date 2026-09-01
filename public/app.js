@@ -789,19 +789,17 @@ function initHeatZoneLayers(zonesGeoJSON) {
         map.getSource('heat-risk-zones').setData(zonesGeoJSON);
     }
 
+    const isHeatStress = currentMode === 'heatstress';
+
     if (!map.getLayer('heat-risk-zones-fill')) {
         map.addLayer({
             id: 'heat-risk-zones-fill',
             type: 'fill',
             source: 'heat-risk-zones',
             layout: {
-                visibility: 'none'
+                visibility: isHeatStress ? 'visible' : 'none'
             },
             paint: {
-                // Colored by hhsi_class (Human Heat Stress Index — heat +
-                // vulnerability combined), matching the popup's headline
-                // "Thermal Risk" field. Was 'risk_class' (raw IMD-only)
-                // before the HHSI layer existed.
                 'fill-color': [
                     'match', ['get', 'hhsi_class'],
                     'Extreme Danger', HEAT_ZONE_COLORS['Extreme Danger'],
@@ -820,7 +818,7 @@ function initHeatZoneLayers(zonesGeoJSON) {
             type: 'line',
             source: 'heat-risk-zones',
             layout: {
-                visibility: 'none'
+                visibility: isHeatStress ? 'visible' : 'none'
             },
             paint: {
                 'line-color': '#000000',
@@ -831,6 +829,9 @@ function initHeatZoneLayers(zonesGeoJSON) {
 
         addHeatZoneClickInteraction();
     }
+
+    // Force map layer visibility to sync with the current active mode after load
+    updateMapLayersForMode();
 
     heatZonesVisible = true;
     const toggleBtn = document.getElementById('toggleHeatZonesBtn');
@@ -1052,3 +1053,172 @@ function populateHeatZoneLegendPanel() {
         `;
     }).join('');
 }
+
+// ============================================================
+// FLOATING RIGHT PREDICTION WIDGET
+// ============================================================
+
+let predictionsSummaryData = null;
+let predictionsRecommendationsData = null;
+let activePredictionDate = "2026-05-13";
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadRightPredictionWidget();
+});
+
+function loadRightPredictionWidget() {
+    Promise.all([
+        fetch('/data/predictions_may2026.json').then(res => res.json()).catch(() => null),
+        fetch('/data/hourly_predictions_may2026.json').then(res => res.json()).catch(() => null)
+    ])
+    .then(([summary, hourlyData]) => {
+        if (!summary || !hourlyData) return;
+        predictionsSummaryData = summary;
+        predictionsRecommendationsData = hourlyData;
+
+        renderPredictionWidget();
+    })
+    .catch(err => console.error("Error loading prediction datasets:", err));
+}
+
+function renderPredictionWidget() {
+    const card = document.getElementById('rightPredictionCard');
+    if (!card) return;
+
+    // Apply floating widget styling
+    card.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        width: 310px;
+        z-index: 200;
+        background: rgba(15, 23, 42, 0.92);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 14px;
+        color: #edf7f2;
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+        font-family: 'Inter', sans-serif;
+    `;
+
+    const availableDates = Object.keys(predictionsSummaryData).sort();
+    if (!availableDates.includes(activePredictionDate)) {
+        activePredictionDate = availableDates[0];
+    }
+
+    const summary = predictionsSummaryData[activePredictionDate] || {};
+    const rec = predictionsRecommendationsData[activePredictionDate] || {};
+
+    const isHeatwave = (summary.prediction || '').toUpperCase() === 'HEATWAVE';
+    const badgeColor = isHeatwave ? '#ef4444' : '#10b981';
+    const badgeBg = isHeatwave ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)';
+    const probPct = ((rec.heatwave_probability || summary.probability_of_heatwave || 0) * 100).toFixed(0);
+
+    // Date Switcher Tabs
+    const tabsHTML = availableDates.map(dateStr => {
+        const dayLabel = dateStr.split('-')[2] + ' May';
+        const isActive = dateStr === activePredictionDate;
+        return `
+            <button onclick="switchPredictionDate('${dateStr}')" style="
+                flex: 1;
+                padding: 5px 0;
+                font-size: 11px;
+                font-weight: 700;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                background: ${isActive ? 'var(--brand-primary, #3b82f6)' : 'rgba(255, 255, 255, 0.08)'};
+                color: ${isActive ? '#ffffff' : '#94a3b8'};
+            ">${dayLabel}</button>
+        `;
+    }).join('');
+
+    // Hourly Status Timeline Pills
+    const hourlyEntries = rec.hourly_status ? Object.entries(rec.hourly_status) : [];
+    const hourlyPillsHTML = hourlyEntries.map(([hour, status]) => {
+        let pillBg = '#10b981';
+        if (status === 'UNSAFE') pillBg = '#ef4444';
+        if (status === 'CAUTION') pillBg = '#f59e0b';
+
+        return `
+            <div title="${hour}:00 - ${status}" style="
+                display: flex; flex-direction: column; align-items: center; gap: 3px;
+            ">
+                <span style="font-size: 8px; color: #64748b; font-weight: 600;">${hour}h</span>
+                <div style="
+                    width: 14px; height: 14px; border-radius: 3px; background: ${pillBg};
+                    display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 900; color: #000;
+                ">
+                    ${status[0]}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Recommended Go-Out Windows
+    const goOutWindows = (rec.recommended_go_out_windows || []).map(w => 
+        `<span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;">🟢 ${w}</span>`
+    ).join(' ');
+
+    card.innerHTML = `
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: #94a3b8; text-transform: uppercase;">
+                🔥 Heatwave Forecast
+            </div>
+            <span style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeColor}; font-weight: 800; font-size: 10px; padding: 2px 7px; border-radius: 12px;">
+                ${summary.prediction || 'N/A'}
+            </span>
+        </div>
+
+        <!-- Date Selector Tabs -->
+        <div style="display: flex; gap: 4px; background: rgba(0, 0, 0, 0.3); padding: 3px; border-radius: 8px; margin-bottom: 12px;">
+            ${tabsHTML}
+        </div>
+
+        <!-- Stats Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; background: rgba(255, 255, 255, 0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
+            <div>
+                <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">Risk Probability</div>
+                <div style="font-size: 16px; font-weight: 800; color: ${isHeatwave ? '#ef4444' : '#10b981'};">${probPct}%</div>
+            </div>
+            <div>
+                <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">Unsafe Duration</div>
+                <div style="font-size: 13px; font-weight: 700; color: #f8fafc; margin-top: 2px;">${rec.expected_unsafe_duration || '0 hrs'}</div>
+            </div>
+        </div>
+
+        <!-- Danger Window Alert -->
+        <div style="margin-bottom: 10px; font-size: 11px;">
+            <div style="color: #64748b; font-size: 9.5px; font-weight: 600; margin-bottom: 2px;">Peak Danger Window:</div>
+            <div style="color: #fca5a5; font-weight: 700; background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding: 4px 8px; border-radius: 4px;">
+                ⚠️ ${rec.danger_window || 'None'}
+            </div>
+        </div>
+
+        <!-- Safe Windows -->
+        <div style="margin-bottom: 12px;">
+            <div style="color: #64748b; font-size: 9.5px; font-weight: 600; margin-bottom: 4px;">Recommended Outdoor Windows:</div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                ${goOutWindows}
+            </div>
+        </div>
+
+        <!-- Hourly Timeline Bar -->
+        <div>
+            <div style="color: #64748b; font-size: 9.5px; font-weight: 600; margin-bottom: 6px;">Hourly Risk Profile (08:00–20:00):</div>
+            <div style="display: flex; justify-content: space-between; background: rgba(0, 0, 0, 0.4); padding: 6px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                ${hourlyPillsHTML}
+            </div>
+        </div>
+    `;
+}
+
+function switchPredictionDate(dateStr) {
+    activePredictionDate = dateStr;
+    renderPredictionWidget();
+}
+
+window.switchPredictionDate = switchPredictionDate;

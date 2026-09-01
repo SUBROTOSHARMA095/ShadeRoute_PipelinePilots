@@ -341,6 +341,128 @@ def forecast(daily: pd.DataFrame, base_features):
     return predictions
 
 
+# ---------------------------------------------------------------------
+# 6. Hourly risk profile -> heatwave duration + safe outdoor windows
+# ---------------------------------------------------------------------
+# The daily model above only says WHETHER a day is a heatwave day, not
+# WHEN during the day it's dangerous. We don't have hourly weather
+# forecasts for 13-15 May, so we can't run a genuine hourly ML forecast
+# with a validated accuracy figure the way we did for the daily model.
+# Instead we use historical hourly CLIMATOLOGY: the actual diurnal
+# (hour-by-hour) shape of danger on past heatwave days vs. past normal
+# days in the same season (Apr-Jun), then blend the two shapes using
+# each target date's daily heatwave PROBABILITY from the model above.
+# This is an honest, explainable estimate of expected timing — not a
+# separately-validated hourly forecast, and the code says so.
+DANGER_HOUR_START, DANGER_HOUR_END = 8, 20   # only consider the 8am-8pm window
+VERY_HIGH_DANGER_THRESHOLD = 40.0            # % chance of "Very High" heat index -> treat hour as unsafe
+VERY_HIGH_CAUTION_THRESHOLD = 15.0           # % chance -> caution, not fully clear
+
+
+def build_hourly_profiles(raw_csv: str, season_months=(4, 5, 6)):
+    """Composite hour-of-day risk shape for historical heatwave days vs.
+    historical normal days, restricted to the same season as the target
+    dates (so a May forecast isn't shaped by January's diurnal cycle)."""
+    df = pd.read_csv(raw_csv)
+    df["DateTime_LST"] = pd.to_datetime(df["DateTime_LST"])
+    df["DATE"] = df["DateTime_LST"].dt.date
+    df["HOUR"] = df["DateTime_LST"].dt.hour
+    df["MONTH"] = df["DateTime_LST"].dt.month
+
+    vh_hours = df.groupby("DATE").apply(lambda g: (g["Thermal_Stress"] == "Very High").sum())
+    hw_days = set(vh_hours[vh_hours >= VH_MIN_HOURS].index)
+    df["IS_HW_DAY"] = df["DATE"].isin(hw_days)
+
+    season = df[df["MONTH"].isin(season_months)]
+
+    def agg(g):
+        return pd.Series({
+            "mean_heat_index": g["Heat_Index_C"].mean(),
+            "pct_very_high": (g["Thermal_Stress"] == "Very High").mean() * 100,
+        })
+
+    profile_hw = season[season["IS_HW_DAY"]].groupby("HOUR").apply(agg)
+    profile_normal = season[~season["IS_HW_DAY"]].groupby("HOUR").apply(agg)
+    return profile_hw, profile_normal
+
+
+def hourly_forecast(predictions: dict, profile_hw: pd.DataFrame, profile_normal: pd.DataFrame):
+    """For each predicted date, blend the heatwave-day and normal-day
+    hourly shapes using that date's predicted heatwave probability, then
+    classify each hour 8am-8pm as UNSAFE / CAUTION / OK and read off the
+    recommended go-out windows."""
+    results = {}
+    for date_str, info in predictions.items():
+        p = info["probability_of_heatwave"]
+        blended = p * profile_hw["pct_very_high"] + (1 - p) * profile_normal["pct_very_high"]
+        blended = blended.loc[DANGER_HOUR_START:DANGER_HOUR_END]
+
+        status = blended.apply(lambda v: "UNSAFE" if v >= VERY_HIGH_DANGER_THRESHOLD
+                                else ("CAUTION" if v >= VERY_HIGH_CAUTION_THRESHOLD else "OK"))
+
+        unsafe_hours = status[status == "UNSAFE"].index.tolist()
+        ok_hours = status[status == "OK"].index.tolist()
+
+        duration = f"{len(unsafe_hours)} hour(s)" if unsafe_hours else "0 hours"
+        if unsafe_hours:
+            danger_window = f"{unsafe_hours[0]:02d}:00-{unsafe_hours[-1]+1:02d}:00"
+        else:
+            danger_window = None
+
+        def hour_ranges(hours):
+            if not hours:
+                return []
+            ranges, start = [], hours[0]
+            for a, b in zip(hours, hours[1:] + [None]):
+                if b != a + 1:
+                    ranges.append(f"{start:02d}:00-{a+1:02d}:00")
+                    start = b
+            return ranges
+
+        results[date_str] = {
+            "heatwave_probability": p,
+            "expected_unsafe_duration": duration,
+            "danger_window": danger_window,
+            "recommended_go_out_windows": hour_ranges(ok_hours),
+            "hourly_status": status.to_dict(),
+        }
+        print(f"\n{date_str} (P={p:.2f}): unsafe (Very-High-risk) for {duration}"
+              + (f", danger window {danger_window}" if danger_window else "")
+              + f"\n  Recommended outdoor windows (8am-8pm): {hour_ranges(ok_hours)}")
+    return results
+
+
+def plot_hourly_risk(predictions: dict, profile_hw, profile_normal, out_path="hourly_risk.png"):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    hours = list(range(DANGER_HOUR_START, DANGER_HOUR_END + 1))
+    fig, ax = plt.subplots(figsize=(9, 5))
+    colors = {"2026-05-13": "#4C72B0", "2026-05-14": "#DD8452", "2026-05-15": "#C44E52"}
+
+    for date_str, info in predictions.items():
+        p = info["probability_of_heatwave"]
+        blended = (p * profile_hw["pct_very_high"] + (1 - p) * profile_normal["pct_very_high"]).loc[hours]
+        ax.plot(hours, blended.values, marker="o", label=f"{date_str} (P={p:.2f})",
+                color=colors.get(date_str))
+
+    ax.axhline(VERY_HIGH_DANGER_THRESHOLD, color="red", linestyle="--", linewidth=1,
+               label=f"Unsafe threshold ({VERY_HIGH_DANGER_THRESHOLD:.0f}%)")
+    ax.axhline(VERY_HIGH_CAUTION_THRESHOLD, color="orange", linestyle="--", linewidth=1,
+               label=f"Caution threshold ({VERY_HIGH_CAUTION_THRESHOLD:.0f}%)")
+    ax.set_xticks(hours)
+    ax.set_xlabel("Hour of day (24h, LST)")
+    ax.set_ylabel("Chance of 'Very High' heat-index risk (%)")
+    ax.set_title("Predicted hourly heat risk, 13-15 May 2026 (8am-8pm)")
+    ax.legend(fontsize=9)
+    ax.set_ylim(0, 100)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    print(f"Saved hourly risk graph to {out_path}")
+
+
 if __name__ == "__main__":
     daily = build_daily(RAW_CSV)
     daily, normal = add_climatology(daily)
@@ -350,7 +472,13 @@ if __name__ == "__main__":
     plot_performance(metrics, out_path="model_performance.png")
     predictions = forecast(daily, base_features)
 
+    profile_hw, profile_normal = build_hourly_profiles(RAW_CSV)
+    hourly_results = hourly_forecast(predictions, profile_hw, profile_normal)
+    plot_hourly_risk(predictions, profile_hw, profile_normal, out_path="hourly_risk.png")
+
     metrics.to_csv("train_test_performance.csv", index=False)
     with open("predictions_may2026.json", "w") as f:
         json.dump(predictions, f, indent=2)
-    print("Saved train_test_performance.csv and predictions_may2026.json")
+    with open("hourly_predictions_may2026.json", "w") as f:
+        json.dump(hourly_results, f, indent=2)
+    print("\nSaved train_test_performance.csv, predictions_may2026.json, hourly_predictions_may2026.json")

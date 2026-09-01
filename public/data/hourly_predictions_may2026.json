@@ -1,0 +1,74 @@
+{
+  "2026-05-13": {
+    "heatwave_probability": 0.36,
+    "expected_unsafe_duration": "1 hour(s)",
+    "danger_window": "13:00-14:00",
+    "recommended_go_out_windows": [
+      "08:00-10:00",
+      "16:00-21:00"
+    ],
+    "hourly_status": {
+      "8": "OK",
+      "9": "OK",
+      "10": "CAUTION",
+      "11": "CAUTION",
+      "12": "CAUTION",
+      "13": "UNSAFE",
+      "14": "CAUTION",
+      "15": "CAUTION",
+      "16": "OK",
+      "17": "OK",
+      "18": "OK",
+      "19": "OK",
+      "20": "OK"
+    }
+  },
+  "2026-05-14": {
+    "heatwave_probability": 0.616,
+    "expected_unsafe_duration": "5 hour(s)",
+    "danger_window": "11:00-16:00",
+    "recommended_go_out_windows": [
+      "08:00-10:00",
+      "17:00-21:00"
+    ],
+    "hourly_status": {
+      "8": "OK",
+      "9": "OK",
+      "10": "CAUTION",
+      "11": "UNSAFE",
+      "12": "UNSAFE",
+      "13": "UNSAFE",
+      "14": "UNSAFE",
+      "15": "UNSAFE",
+      "16": "CAUTION",
+      "17": "OK",
+      "18": "OK",
+      "19": "OK",
+      "20": "OK"
+    }
+  },
+  "2026-05-15": {
+    "heatwave_probability": 0.725,
+    "expected_unsafe_duration": "5 hour(s)",
+    "danger_window": "11:00-16:00",
+    "recommended_go_out_windows": [
+      "08:00-10:00",
+      "17:00-21:00"
+    ],
+    "hourly_status": {
+      "8": "OK",
+      "9": "OK",
+      "10": "CAUTION",
+      "11": "UNSAFE",
+      "12": "UNSAFE",
+      "13": "UNSAFE",
+      "14": "UNSAFE",
+      "15": "UNSAFE",
+      "16": "CAUTION",
+      "17": "OK",
+      "18": "OK",
+      "19": "OK",
+      "20": "OK"
+    }
+  }
+}
