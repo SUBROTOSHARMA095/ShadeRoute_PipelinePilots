@@ -1,0 +1,14 @@
+{
+  "2026-05-13": {
+    "probability_of_heatwave": 0.36,
+    "prediction": "No heatwave"
+  },
+  "2026-05-14": {
+    "probability_of_heatwave": 0.616,
+    "prediction": "HEATWAVE"
+  },
+  "2026-05-15": {
+    "probability_of_heatwave": 0.725,
+    "prediction": "HEATWAVE"
+  }
+}
