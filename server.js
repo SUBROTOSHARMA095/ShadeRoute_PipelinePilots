@@ -15,13 +15,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Path pointing directly to ROOT/public/data
 const PUBLIC_DATA_DIR = path.join(__dirname, 'public', 'data');
 
-// Target recipient phone numbers for ADB SMS
-const RECIPIENTS = [
-    '+919876543210',
-    '+919876543211',
-    '+919876543212'
-];
-
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function sendAdbSms(phone, message) {
