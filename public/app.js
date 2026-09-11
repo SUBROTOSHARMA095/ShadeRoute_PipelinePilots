@@ -15,6 +15,83 @@ let mistMarkers = [];
 // --- Heat Risk Zones state ---
 let heatZoneLegendData = null;   // parsed heat_zone_legend.json
 let heatZonesVisible = false;    // layer starts hidden until user toggles it
+let heatZoneManifest = null;     // parsed timeline/manifest.json (list of daily files)
+let currentHeatZoneDate = null;  // ISO date string ('YYYY-MM-DD') currently displayed
+
+// Mode State Tracker
+let currentMode = 'intervention'; // Default mode: 'intervention' or 'heatstress'
+
+function setAppMode(mode) {
+    currentMode = mode;
+
+    // 1. Toggle Active Tab and Panel States
+    const interventionBtn = document.getElementById('modeInterventionBtn');
+    const heatStressBtn = document.getElementById('modeHeatStressBtn');
+    const interventionContent = document.getElementById('interventionModeContent');
+    const heatStressContent = document.getElementById('heatStressModeContent');
+
+    if (interventionBtn && heatStressBtn && interventionContent && heatStressContent) {
+        if (mode === 'intervention') {
+            interventionBtn.classList.add('active');
+            heatStressBtn.classList.remove('active');
+            interventionContent.classList.add('active');
+            heatStressContent.classList.remove('active');
+        } else {
+            heatStressBtn.classList.add('active');
+            interventionBtn.classList.remove('active');
+            heatStressContent.classList.add('active');
+            interventionContent.classList.remove('active');
+        }
+    }
+
+    // 2. Remove Open Map Popups
+    if (typeof activeComicPopup !== 'undefined' && activeComicPopup) {
+        activeComicPopup.remove();
+    }
+
+    // 3. Update Visible Layers on Map
+    updateMapLayersForMode();
+}
+
+function updateMapLayersForMode() {
+    if (typeof map === 'undefined' || !map.isStyleLoaded()) return;
+
+    const isIntervention = currentMode === 'intervention';
+    const isHeatStress = currentMode === 'heatstress';
+
+    // Priority Grid Layers (Intervention Mode)
+    if (map.getLayer('priority-grid')) {
+        map.setLayoutProperty('priority-grid', 'visibility', isIntervention ? 'visible' : 'none');
+    }
+    if (map.getLayer('priority-grid-highlight')) {
+        map.setLayoutProperty('priority-grid-highlight', 'visibility', isIntervention ? 'visible' : 'none');
+    }
+
+    // Recommended Map Markers (Intervention Mode)
+    if (typeof treeMarkers !== 'undefined') {
+        treeMarkers.forEach(marker => {
+            const el = marker.getElement();
+            if (el) el.style.display = isIntervention ? 'block' : 'none';
+        });
+    }
+    if (typeof mistMarkers !== 'undefined') {
+        mistMarkers.forEach(marker => {
+            const el = marker.getElement();
+            if (el) el.style.display = isIntervention ? 'block' : 'none';
+        });
+    }
+
+    // Heat Risk Polygon Layers (Heat Stress Mode)
+    if (map.getLayer('heat-risk-zones-fill')) {
+        map.setLayoutProperty('heat-risk-zones-fill', 'visibility', isHeatStress ? 'visible' : 'none');
+    }
+    if (map.getLayer('heat-risk-zones-outline')) {
+        map.setLayoutProperty('heat-risk-zones-outline', 'visibility', isHeatStress ? 'visible' : 'none');
+    }
+}
+
+// Bind setAppMode directly to window so HTML inline onclick="setAppMode(...)" handlers can execute it
+window.setAppMode = setAppMode;
 
 const map = new maplibregl.Map({
     container: 'map',
@@ -206,14 +283,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (treeBtn) treeBtn.addEventListener("click", recommendTreeLocations);
     if (mistBtn) mistBtn.addEventListener("click", recommendMistSprayerLocations);
 
-    const suggestionAction = document.getElementById("suggestionAction");
-    if (suggestionAction) {
-        suggestionAction.addEventListener("click", function () {
-            showMessage("Prioritize native trees near busy walking areas and public spaces");
-        });
-    }
-
-    buildHeatZoneSidebarSection();
 });
 
 const mapControls = document.querySelectorAll(".map-control");
@@ -677,87 +746,149 @@ const DEFAULT_IMD_LEGEND = {
 
 function loadHeatRiskZones() {
     Promise.all([
-        fetch('/data/heat_risk_zones.geojson').then(res => res.json()),
+        fetch('/data/timeline/manifest.json').then(res => res.json()).catch(() => null),
         fetch('/data/heat_zone_legend.json').then(res => res.json()).catch(() => null)
     ])
-        .then(([zonesGeoJSON, legendJSON]) => {
-            // Use local IMD fallback if JSON file is missing or has old keys
+        .then(([manifest, legendJSON]) => {
             heatZoneLegendData = (legendJSON && legendJSON.zones && legendJSON.zones['Extreme Danger'])
                 ? legendJSON
                 : DEFAULT_IMD_LEGEND;
 
-            if (!map.getSource('heat-risk-zones')) {
-                map.addSource('heat-risk-zones', {
-                    type: 'geojson',
-                    data: zonesGeoJSON
-                });
+            heatZoneManifest = manifest;
+
+            // Default to "today" (May 12) from the manifest. If the manifest
+            // itself isn't there (timeline not generated yet), fall back to
+            // the plain heat_risk_zones.geojson alias so the layer still works.
+            let defaultFile = '/data/heat_risk_zones.geojson';
+            let defaultDate = null;
+            if (manifest && manifest.dates && manifest.dates.length) {
+                defaultDate = manifest.today;
+                const entry = manifest.dates.find(d => d.date === defaultDate) || manifest.dates[manifest.dates.length - 1];
+                defaultFile = `/data/${entry.file}`;
+                defaultDate = entry.date;
             }
 
-            if (!map.getLayer('heat-risk-zones-fill')) {
-                map.addLayer({
-                    id: 'heat-risk-zones-fill',
-                    type: 'fill',
-                    source: 'heat-risk-zones',
-                    layout: {
-                        visibility: 'visible'
-                    },
-                    paint: {
-                        'fill-color': [
-                            'match', ['get', 'risk_class'],
-                            'Extreme Danger', HEAT_ZONE_COLORS['Extreme Danger'],
-                            'Danger', HEAT_ZONE_COLORS['Danger'],
-                            'Extreme Caution', HEAT_ZONE_COLORS['Extreme Caution'],
-                            'Caution', HEAT_ZONE_COLORS['Caution'],
-                            'Normal / Safe', HEAT_ZONE_COLORS['Normal / Safe'],
-                            '#9ca3af'
-                        ],
-                        'fill-opacity': 0.55
-                    }
+            return fetch(defaultFile)
+                .then(res => res.json())
+                .then(zonesGeoJSON => {
+                    currentHeatZoneDate = defaultDate;
+                    initHeatZoneLayers(zonesGeoJSON);
+                    buildHeatZoneDatePicker();
                 });
-
-                map.addLayer({
-                    id: 'heat-risk-zones-outline',
-                    type: 'line',
-                    source: 'heat-risk-zones',
-                    layout: {
-                        visibility: 'visible'
-                    },
-                    paint: {
-                        'line-color': '#000000',
-                        'line-width': 1,
-                        'line-opacity': 0.3
-                    }
-                });
-            }
-
-            heatZonesVisible = true;
-            const toggleBtn = document.getElementById('toggleHeatZonesBtn');
-            if (toggleBtn) toggleBtn.classList.add('active');
-
-            addHeatZoneClickInteraction();
-            populateHeatZoneLegendPanel();
         })
         .catch(error => console.error('Could not load heat risk zone data:', error));
 }
 
-function toggleHeatZonesLayer() {
+function initHeatZoneLayers(zonesGeoJSON) {
+    if (!map.getSource('heat-risk-zones')) {
+        map.addSource('heat-risk-zones', {
+            type: 'geojson',
+            data: zonesGeoJSON
+        });
+    } else {
+        map.getSource('heat-risk-zones').setData(zonesGeoJSON);
+    }
+
+    const isHeatStress = currentMode === 'heatstress';
+
     if (!map.getLayer('heat-risk-zones-fill')) {
-        showMessage('Heat zone data not loaded yet');
-        return;
+        map.addLayer({
+            id: 'heat-risk-zones-fill',
+            type: 'fill',
+            source: 'heat-risk-zones',
+            layout: {
+                visibility: isHeatStress ? 'visible' : 'none'
+            },
+            paint: {
+                'fill-color': [
+                    'match', ['get', 'hhsi_class'],
+                    'Extreme Danger', HEAT_ZONE_COLORS['Extreme Danger'],
+                    'Danger', HEAT_ZONE_COLORS['Danger'],
+                    'Extreme Caution', HEAT_ZONE_COLORS['Extreme Caution'],
+                    'Caution', HEAT_ZONE_COLORS['Caution'],
+                    'Normal / Safe', HEAT_ZONE_COLORS['Normal / Safe'],
+                    '#9ca3af'
+                ],
+                'fill-opacity': 0.55
+            }
+        });
+
+        map.addLayer({
+            id: 'heat-risk-zones-outline',
+            type: 'line',
+            source: 'heat-risk-zones',
+            layout: {
+                visibility: isHeatStress ? 'visible' : 'none'
+            },
+            paint: {
+                'line-color': '#000000',
+                'line-width': 1,
+                'line-opacity': 0.3
+            }
+        });
+
+        addHeatZoneClickInteraction();
     }
 
-    heatZonesVisible = !heatZonesVisible;
-    const visibility = heatZonesVisible ? 'visible' : 'none';
+    // Force map layer visibility to sync with the current active mode after load
+    updateMapLayersForMode();
 
-    map.setLayoutProperty('heat-risk-zones-fill', 'visibility', visibility);
-    map.setLayoutProperty('heat-risk-zones-outline', 'visibility', visibility);
-
+    heatZonesVisible = true;
     const toggleBtn = document.getElementById('toggleHeatZonesBtn');
-    if (toggleBtn) {
-        toggleBtn.classList.toggle('active', heatZonesVisible);
+    if (toggleBtn) toggleBtn.classList.add('active');
+
+    populateHeatZoneLegendPanel();
+}
+
+// Simple date dropdown for the Mar 1 - May 12 2026 timeline. Reads the
+// dates straight from manifest.json rather than hardcoding a range, so it
+// stays correct if the model is re-run with a different window later.
+function buildHeatZoneDatePicker() {
+    if (!heatZoneManifest || !heatZoneManifest.dates || !heatZoneManifest.dates.length) return;
+
+    let select = document.getElementById('heatZoneDateSelect');
+    if (!select) {
+        select = document.createElement('select');
+        select.id = 'heatZoneDateSelect';
+        select.style.cssText = `
+            font-family: Inter, sans-serif;
+            font-weight: 700;
+            font-size: 11px;
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.4);
+            color: #fff;
+            cursor: pointer;
+        `;
+
+        const container = document.getElementById('datePickerContainer');
+        if (container) {
+            container.appendChild(select);
+        }
+
+        select.addEventListener('change', () => {
+            const entry = heatZoneManifest.dates.find(d => d.date === select.value);
+            if (!entry) return;
+
+            fetch(`/data/${entry.file}`)
+                .then(res => res.json())
+                .then(zonesGeoJSON => {
+                    currentHeatZoneDate = entry.date;
+                    if (map.getSource('heat-risk-zones')) {
+                        map.getSource('heat-risk-zones').setData(zonesGeoJSON);
+                    }
+                    showMessage(`Showing thermal stress for ${entry.date}`);
+                })
+                .catch(error => console.error(`Could not load heat risk data for ${entry.date}:`, error));
+        });
     }
 
-    showMessage(heatZonesVisible ? 'Human thermal stress zones shown' : 'Human thermal stress zones hidden');
+    select.innerHTML = heatZoneManifest.dates.map(d => {
+        const label = d.date === heatZoneManifest.today ? `${d.date} (Today)` : d.date;
+        return `<option value="${d.date}">${label}</option>`;
+    }).join('');
+    select.value = currentHeatZoneDate || heatZoneManifest.today;
 }
 
 function addHeatZoneClickInteraction() {
@@ -772,64 +903,80 @@ function addHeatZoneClickInteraction() {
             activeComicPopup.remove();
         }
 
-        const riskClass = props.risk_class || 'Normal / Safe';
-        const badgeBg = HEAT_ZONE_COLORS[riskClass] || '#9ca3af';
+        // hhsi_class drives the headline "Thermal Risk" now (HHSI = heat +
+        // vulnerability combined), not the raw IMD risk_class — that's why
+        // this switched from risk_class to hhsi_class vs. the old popup.
+        const hhsiClass = props.hhsi_class || 'Normal / Safe';
+        const badgeBg = HEAT_ZONE_COLORS[hhsiClass] || '#9ca3af';
         const classInfo = heatZoneLegendData && heatZoneLegendData.zones
-            ? heatZoneLegendData.zones[riskClass]
+            ? heatZoneLegendData.zones[hhsiClass]
             : null;
 
         const advisoryListHTML = (classInfo && classInfo.advisory)
             ? classInfo.advisory.map(line => `<li>${line}</li>`).join('')
             : '<li>No advisory data available.</li>';
 
-        const vulnClass = props.vulnerability_class || 'N/A';
-        const vulnColor = VULNERABILITY_COLORS[vulnClass] || '#9ca3af';
+        // Short display labels for the HHSI badge. This mapping is a
+        // display choice, not derived from the model's own class names —
+        // adjust freely.
+        const THERMAL_RISK_LABEL = {
+            'Extreme Danger': 'Extreme Danger',
+            'Danger': 'Danger',
+            'Extreme Caution': 'Extreme Caution',
+            'Caution': 'Caution',
+            'Normal / Safe': 'SAFE'
+        };
+        const thermalRiskLabel = THERMAL_RISK_LABEL[hhsiClass] || hhsiClass.toUpperCase();
 
-        const overallRisk = props.overall_risk || 'N/A';
-        const overallStyle = OVERALL_RISK_STYLE[overallRisk] || { emoji: '⚪', color: '#9ca3af' };
-        const overallEmoji = props.overall_risk_emoji || overallStyle.emoji;
-
-        const paramRows = [
-            ['IMD Heat Index', props.HI_IMD != null ? `${props.HI_IMD}°C` : 'N/A'],
-            ['Air temperature', props.air_temp != null ? `${props.air_temp}°C` : 'N/A'],
-            ['Relative humidity', props.rel_humidity != null ? `${props.rel_humidity}%` : 'N/A'],
-            ['LST', props.LST != null ? `${props.LST}°C` : 'N/A'],
-            ['NDVI', props.NDVI != null ? props.NDVI : 'N/A']
-        ];
-
-        const paramRowsHTML = paramRows.map(([label, value]) => `
+        const sectionHeader = (label) => `
+            <tr>
+                <td colspan="2" style="padding:8px 0 3px 0; font-weight:900; font-size:10.5px; letter-spacing:0.5px; text-transform:uppercase; color:#111; border-bottom:2px solid #000;">${label}</td>
+            </tr>
+        `;
+        const row = (label, value) => `
             <tr>
                 <td style="padding:3px 6px 3px 0; font-weight:700; color:#334155;">${label}</td>
                 <td style="padding:3px 0; text-align:right; font-weight:800;">${value}</td>
             </tr>
-        `).join('');
+        `;
+        const fmt = (v, unit = '', digits = null) =>
+            v != null ? `${digits != null ? Number(v).toFixed(digits) : v}${unit}` : 'N/A';
+
+        const sectionsHTML = `
+            ${sectionHeader('Human Thermal Stress')}
+            ${row('HHSI', fmt(props.HHSI_max, '', 1))}
+            <tr>
+                <td style="padding:3px 6px 3px 0; font-weight:700; color:#334155;">Thermal Risk</td>
+                <td style="padding:3px 0; text-align:right;">
+                    <span style="background:${badgeBg}; color:#fff; font-weight:800; padding:2px 8px; border-radius:10px; font-size:10.5px;">${thermalRiskLabel}</span>
+                </td>
+            </tr>
+
+            ${sectionHeader('Weather')}
+            ${row('Air Temperature', fmt(props.air_temp, '°C'))}
+            ${row('Relative Humidity', fmt(props.rel_humidity, '%'))}
+            ${row('Wind Speed', fmt(props.wind_speed, ' m/s'))}
+            ${row('Solar Radiation', fmt(props.solar_rad_W_m2, ' W/m²'))}
+
+            ${sectionHeader('Environmental Factors')}
+            ${row('LST', fmt(props.LST, '°C'))}
+            ${row('NDVI', fmt(props.NDVI))}
+            ${row('Vegetation Cover', fmt(props.vegetation_cover_pct, '%'))}
+
+            ${sectionHeader('Vulnerability')}
+            ${row('Population Density', props.population_density_class || 'N/A')}
+            ${row('Outdoor Exposure', props.outdoor_exposure || 'N/A')}
+            ${row('Nearby Hospital', fmt(props.dist_hospital_km, ' km'))}
+        `;
 
         const popupHTML = `
-            <div style="line-height:1.35; font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; min-width:220px;">
-                <div style="font-weight:900; font-size:15px; margin-bottom:6px;">
-                    ${props.sector_id || 'Sector'}
+            <div style="line-height:1.35; font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; min-width:230px;">
+                <div style="font-weight:900; font-size:15px; margin-bottom:2px;">
+                    Zone ${props.sector_id || '?'}
                 </div>
 
                 <table style="width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:8px;">
-                    ${paramRowsHTML}
-                    <tr>
-                        <td style="padding:5px 6px 3px 0; font-weight:700; color:#334155; border-top:2px solid #000;">IMD Hazard Class</td>
-                        <td style="padding:5px 0 3px 0; text-align:right; border-top:2px solid #000;">
-                            <span style="background:${badgeBg}; color:#fff; font-weight:800; padding:2px 8px; border-radius:10px; font-size:10.5px;">${riskClass}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding:3px 6px 3px 0; font-weight:700; color:#334155;">Vulnerability</td>
-                        <td style="padding:3px 0; text-align:right;">
-                            <span style="background:${vulnColor}; color:#fff; font-weight:800; padding:2px 8px; border-radius:10px; font-size:10.5px;">${vulnClass}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding:5px 6px 3px 0; font-weight:900; border-top:2px solid #000;">Overall risk</td>
-                        <td style="padding:5px 0 3px 0; text-align:right; font-weight:900; color:${overallStyle.color}; border-top:2px solid #000;">
-                            ${overallEmoji} ${overallRisk}
-                        </td>
-                    </tr>
+                    ${sectionsHTML}
                 </table>
 
                 <div style="font-size:11px; font-weight:700; color:#111; margin-bottom:6px;">
@@ -837,7 +984,7 @@ function addHeatZoneClickInteraction() {
                 </div>
 
                 <div style="font-size:10.5px; font-weight:700; background:#fff7ed; padding:6px; border:2px solid #000; border-radius:6px;">
-                    <b>IMD Advisories & Precautions:</b>
+                    <b>Advisories & Precautions:</b>
                     <ul style="margin:4px 0 0 16px; padding:0;">
                         ${advisoryListHTML}
                     </ul>
@@ -869,20 +1016,6 @@ function addHeatZoneClickInteraction() {
     map.on('mouseleave', 'heat-risk-zones-fill', () => {
         map.getCanvas().style.cursor = '';
     });
-}
-
-function buildHeatZoneSidebarSection() {
-    // Attach event listener to the existing HTML button
-    const toggleBtn = document.getElementById('toggleHeatZonesBtn');
-    if (toggleBtn && !toggleBtn.dataset.initialized) {
-        toggleBtn.addEventListener('click', toggleHeatZonesLayer);
-        toggleBtn.dataset.initialized = "true"; // Prevents multiple bindings
-    }
-
-    // Populate the legend list if data is loaded
-    if (heatZoneLegendData) {
-        populateHeatZoneLegendPanel();
-    }
 }
 
 function populateHeatZoneLegendPanel() {
@@ -920,3 +1053,172 @@ function populateHeatZoneLegendPanel() {
         `;
     }).join('');
 }
+
+// ============================================================
+// FLOATING RIGHT PREDICTION WIDGET
+// ============================================================
+
+let predictionsSummaryData = null;
+let predictionsRecommendationsData = null;
+let activePredictionDate = "2026-05-13";
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadRightPredictionWidget();
+});
+
+function loadRightPredictionWidget() {
+    Promise.all([
+        fetch('/data/predictions_may2026.json').then(res => res.json()).catch(() => null),
+        fetch('/data/hourly_predictions_may2026.json').then(res => res.json()).catch(() => null)
+    ])
+    .then(([summary, hourlyData]) => {
+        if (!summary || !hourlyData) return;
+        predictionsSummaryData = summary;
+        predictionsRecommendationsData = hourlyData;
+
+        renderPredictionWidget();
+    })
+    .catch(err => console.error("Error loading prediction datasets:", err));
+}
+
+function renderPredictionWidget() {
+    const card = document.getElementById('rightPredictionCard');
+    if (!card) return;
+
+    // Apply floating widget styling
+    card.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        width: 310px;
+        z-index: 200;
+        background: rgba(15, 23, 42, 0.92);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 14px;
+        color: #edf7f2;
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+        font-family: 'Inter', sans-serif;
+    `;
+
+    const availableDates = Object.keys(predictionsSummaryData).sort();
+    if (!availableDates.includes(activePredictionDate)) {
+        activePredictionDate = availableDates[0];
+    }
+
+    const summary = predictionsSummaryData[activePredictionDate] || {};
+    const rec = predictionsRecommendationsData[activePredictionDate] || {};
+
+    const isHeatwave = (summary.prediction || '').toUpperCase() === 'HEATWAVE';
+    const badgeColor = isHeatwave ? '#ef4444' : '#10b981';
+    const badgeBg = isHeatwave ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)';
+    const probPct = ((rec.heatwave_probability || summary.probability_of_heatwave || 0) * 100).toFixed(0);
+
+    // Date Switcher Tabs
+    const tabsHTML = availableDates.map(dateStr => {
+        const dayLabel = dateStr.split('-')[2] + ' May';
+        const isActive = dateStr === activePredictionDate;
+        return `
+            <button onclick="switchPredictionDate('${dateStr}')" style="
+                flex: 1;
+                padding: 5px 0;
+                font-size: 11px;
+                font-weight: 700;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                background: ${isActive ? 'var(--brand-primary, #3b82f6)' : 'rgba(255, 255, 255, 0.08)'};
+                color: ${isActive ? '#ffffff' : '#94a3b8'};
+            ">${dayLabel}</button>
+        `;
+    }).join('');
+
+    // Hourly Status Timeline Pills
+    const hourlyEntries = rec.hourly_status ? Object.entries(rec.hourly_status) : [];
+    const hourlyPillsHTML = hourlyEntries.map(([hour, status]) => {
+        let pillBg = '#10b981';
+        if (status === 'UNSAFE') pillBg = '#ef4444';
+        if (status === 'CAUTION') pillBg = '#f59e0b';
+
+        return `
+            <div title="${hour}:00 - ${status}" style="
+                display: flex; flex-direction: column; align-items: center; gap: 3px;
+            ">
+                <span style="font-size: 8px; color: #64748b; font-weight: 600;">${hour}h</span>
+                <div style="
+                    width: 14px; height: 14px; border-radius: 3px; background: ${pillBg};
+                    display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 900; color: #000;
+                ">
+                    ${status[0]}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Recommended Go-Out Windows
+    const goOutWindows = (rec.recommended_go_out_windows || []).map(w => 
+        `<span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;">🟢 ${w}</span>`
+    ).join(' ');
+
+    card.innerHTML = `
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: #94a3b8; text-transform: uppercase;">
+                🔥 Heatwave Forecast
+            </div>
+            <span style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeColor}; font-weight: 800; font-size: 10px; padding: 2px 7px; border-radius: 12px;">
+                ${summary.prediction || 'N/A'}
+            </span>
+        </div>
+
+        <!-- Date Selector Tabs -->
+        <div style="display: flex; gap: 4px; background: rgba(0, 0, 0, 0.3); padding: 3px; border-radius: 8px; margin-bottom: 12px;">
+            ${tabsHTML}
+        </div>
+
+        <!-- Stats Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; background: rgba(255, 255, 255, 0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
+            <div>
+                <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">Risk Probability</div>
+                <div style="font-size: 16px; font-weight: 800; color: ${isHeatwave ? '#ef4444' : '#10b981'};">${probPct}%</div>
+            </div>
+            <div>
+                <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">Unsafe Duration</div>
+                <div style="font-size: 13px; font-weight: 700; color: #f8fafc; margin-top: 2px;">${rec.expected_unsafe_duration || '0 hrs'}</div>
+            </div>
+        </div>
+
+        <!-- Danger Window Alert -->
+        <div style="margin-bottom: 10px; font-size: 11px;">
+            <div style="color: #64748b; font-size: 9.5px; font-weight: 600; margin-bottom: 2px;">Peak Danger Window:</div>
+            <div style="color: #fca5a5; font-weight: 700; background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding: 4px 8px; border-radius: 4px;">
+                ⚠️ ${rec.danger_window || 'None'}
+            </div>
+        </div>
+
+        <!-- Safe Windows -->
+        <div style="margin-bottom: 12px;">
+            <div style="color: #64748b; font-size: 9.5px; font-weight: 600; margin-bottom: 4px;">Recommended Outdoor Windows:</div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                ${goOutWindows}
+            </div>
+        </div>
+
+        <!-- Hourly Timeline Bar -->
+        <div>
+            <div style="color: #64748b; font-size: 9.5px; font-weight: 600; margin-bottom: 6px;">Hourly Risk Profile (08:00–20:00):</div>
+            <div style="display: flex; justify-content: space-between; background: rgba(0, 0, 0, 0.4); padding: 6px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                ${hourlyPillsHTML}
+            </div>
+        </div>
+    `;
+}
+
+function switchPredictionDate(dateStr) {
+    activePredictionDate = dateStr;
+    renderPredictionWidget();
+}
+
+window.switchPredictionDate = switchPredictionDate;
