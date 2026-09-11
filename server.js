@@ -15,8 +15,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Path pointing directly to ROOT/public/data
 const PUBLIC_DATA_DIR = path.join(__dirname, 'public', 'data');
 
-
-
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function sendAdbSms(phone, message) {
