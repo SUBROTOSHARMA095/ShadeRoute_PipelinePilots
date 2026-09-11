@@ -11,6 +11,21 @@ let activeComicPopup = null;
 // Track active location pointer markers so we can update/clear them
 let treeMarkers = [];
 let mistMarkers = [];
+let campusBounds = null;
+
+function updateKpiInterventions() {
+    const kpi = document.getElementById('kpiInterventions');
+    if (!kpi) return;
+    const trees = treeMarkers ? treeMarkers.length : 0;
+    const mist  = mistMarkers ? mistMarkers.length : 0;
+    const total = trees + mist;
+    kpi.textContent = `${total} Placed`;
+
+    // Update the Before/After Cooling Impact Banner
+    if (typeof window._updateCoolingBanner === 'function') {
+        window._updateCoolingBanner(trees, mist);
+    }
+}
 
 // --- Heat Risk Zones state ---
 let heatZoneLegendData = null;   // parsed heat_zone_legend.json
@@ -23,6 +38,9 @@ let currentMode = 'intervention'; // Default mode: 'intervention' or 'heatstress
 
 function setAppMode(mode) {
     currentMode = mode;
+
+    // Close zone detail panel on mode switch
+    if (typeof closeHeatZoneDetail === 'function') closeHeatZoneDetail();
 
     // 1. Toggle Active Tab and Panel States
     const interventionBtn = document.getElementById('modeInterventionBtn');
@@ -145,7 +163,8 @@ map.on('load', () => {
                 });
             });
 
-            map.fitBounds(bounds, { padding: 50 });
+            campusBounds = bounds;
+            map.fitBounds(bounds, { padding: 60 });
             //map.setMaxBounds(bounds);
         });
 
@@ -283,6 +302,105 @@ document.addEventListener("DOMContentLoaded", function () {
     if (treeBtn) treeBtn.addEventListener("click", recommendTreeLocations);
     if (mistBtn) mistBtn.addEventListener("click", recommendMistSprayerLocations);
 
+    // Clear Buttons
+    const clearTreesBtn = document.getElementById("clearTreesBtn");
+    const clearMistBtn = document.getElementById("clearMistBtn");
+    const clearAllBtn = document.getElementById("clearAllInterventionsBtn");
+
+    if (clearTreesBtn) clearTreesBtn.addEventListener("click", clearTrees);
+    if (clearMistBtn) clearMistBtn.addEventListener("click", clearMist);
+    if (clearAllBtn) clearAllBtn.addEventListener("click", clearAllInterventions);
+
+    // Recenter Campus Button
+    const recenterBtn = document.getElementById("recenterBtn");
+    if (recenterBtn) {
+        recenterBtn.addEventListener("click", () => {
+            if (campusBounds) {
+                map.fitBounds(campusBounds, { padding: 80, duration: 1000 });
+                showMessage("Centered on SOA ITER Campus");
+            } else {
+                map.flyTo({ center: [85.8055, 20.2520], zoom: 16.5, duration: 1000 });
+            }
+        });
+    }
+
+    // "How It Works" Modal
+    const howBtn = document.getElementById("howItWorksBtn");
+    const modal = document.getElementById("howItWorksModal");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const startSimBtn = document.getElementById("startSimModalBtn");
+
+    function openModal() { if (modal) modal.classList.add("open"); }
+    function closeModal() { if (modal) modal.classList.remove("open"); }
+
+    if (howBtn) howBtn.addEventListener("click", openModal);
+    if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
+    if (startSimBtn) {
+        startSimBtn.addEventListener("click", () => {
+            closeModal();
+            if (sidebar) sidebar.classList.remove("collapsed");
+        });
+    }
+    if (modal) {
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) closeModal();
+        });
+    }
+
+    // Tree Slider <-> Input Sync
+    const treeSlider = document.getElementById("treeSlider");
+    const treeCount = document.getElementById("treeCount");
+    if (treeSlider && treeCount) {
+        treeSlider.addEventListener("input", () => {
+            treeCount.value = treeSlider.value;
+            syncPresetChips("tree", treeSlider.value);
+        });
+        treeCount.addEventListener("input", () => {
+            treeSlider.value = treeCount.value;
+            syncPresetChips("tree", treeCount.value);
+        });
+    }
+
+    // Mist Slider <-> Input Sync
+    const mistSlider = document.getElementById("mistSlider");
+    const mistCount = document.getElementById("mistSprayerCount");
+    if (mistSlider && mistCount) {
+        mistSlider.addEventListener("input", () => {
+            mistCount.value = mistSlider.value;
+            syncPresetChips("mist", mistSlider.value);
+        });
+        mistCount.addEventListener("input", () => {
+            mistSlider.value = mistCount.value;
+            syncPresetChips("mist", mistCount.value);
+        });
+    }
+
+    // Quick Preset Chips Click Handlers
+    document.querySelectorAll("[data-preset]").forEach(chip => {
+        chip.addEventListener("click", () => {
+            const type = chip.getAttribute("data-preset");
+            const val = chip.getAttribute("data-value");
+            if (type === "tree" && treeCount && treeSlider) {
+                treeCount.value = val;
+                treeSlider.value = val;
+                syncPresetChips("tree", val);
+            } else if (type === "mist" && mistCount && mistSlider) {
+                mistCount.value = val;
+                mistSlider.value = val;
+                syncPresetChips("mist", val);
+            }
+        });
+    });
+
+    function syncPresetChips(type, val) {
+        document.querySelectorAll(`[data-preset="${type}"]`).forEach(c => {
+            if (c.getAttribute("data-value") === String(val)) {
+                c.classList.add("active");
+            } else {
+                c.classList.remove("active");
+            }
+        });
+    }
 });
 
 const mapControls = document.querySelectorAll(".map-control");
@@ -323,31 +441,31 @@ function createLocationPin(type) {
     el.className = 'custom-location-pointer';
 
     const isTree = type === 'tree';
-    const pinColor = isTree ? '#10b981' : '#00e5ff';
+    const pinColor = isTree ? '#059669' : '#0284c7';
     const icon = isTree ? '🌳' : '💧';
 
     el.innerHTML = `
         <div style="
             position: relative;
-            width: 26px;
-            height: 32px;
+            width: 28px;
+            height: 34px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            filter: drop-shadow(0px 3px 6px rgba(0,0,0,0.65));
-            transition: transform 0.2s ease;
+            filter: drop-shadow(0px 3px 6px rgba(15, 23, 42, 0.22));
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         ">
-            <svg width="26" height="32" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 30 12 30C12 30 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="${pinColor}" stroke="#000000" stroke-width="1.5"/>
-                <circle cx="12" cy="11" r="7.5" fill="#ffffff" stroke="#000000" stroke-width="1"/>
+            <svg width="28" height="34" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 30 12 30C12 30 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="${pinColor}" stroke="#ffffff" stroke-width="2"/>
+                <circle cx="12" cy="11" r="7" fill="#ffffff"/>
             </svg>
-            <span style="position: absolute; top: 3px; font-size: 10px;">${icon}</span>
+            <span style="position: absolute; top: 3.5px; font-size: 10px;">${icon}</span>
         </div>
     `;
 
-    el.addEventListener('mouseenter', () => el.firstElementChild.style.transform = 'scale(1.3)');
-    el.addEventListener('mouseleave', () => el.firstElementChild.style.transform = 'scale(1)');
+    el.addEventListener('mouseenter', () => el.firstElementChild.style.transform = 'scale(1.25) translateY(-2px)');
+    el.addEventListener('mouseleave', () => el.firstElementChild.style.transform = 'scale(1) translateY(0)');
 
     return el;
 }
@@ -498,42 +616,62 @@ function addGridClickInteraction() {
             activeComicPopup.remove();
         }
 
-        let badgeBg = '#facc15';
-        if (cell.intervention_type === 'Mist Sprayer') badgeBg = '#00ffff';
-        else if (cell.priority_class === 'Very High') badgeBg = '#ff2a2a';
-        else if (cell.priority_class === 'High') badgeBg = '#ff8800';
-        else if (cell.priority_class === 'Low') badgeBg = '#10b981';
-        else if (cell.priority_class === 'Very Low') badgeBg = '#3b82f6';
+        let badgeBg = '#f59e0b';
+        let badgeColor = '#ffffff';
+        if (cell.intervention_type === 'Mist Sprayer') { badgeBg = '#0284c7'; }
+        else if (cell.priority_class === 'Very High') { badgeBg = '#dc2626'; }
+        else if (cell.priority_class === 'High') { badgeBg = '#ea580c'; }
+        else if (cell.priority_class === 'Low') { badgeBg = '#059669'; }
+        else if (cell.priority_class === 'Very Low') { badgeBg = '#3b82f6'; }
 
         const popupHTML = `
-            <div style="line-height:1.35; font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;">
-                <div class="comic-badge" style="background:${badgeBg};">
-                    ${cell.intervention_type || 'Priority Grid'}
+            <div style="font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; color: #0f172a; line-height: 1.4; padding: 2px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-right: 18px;">
+                    <span style="background: ${badgeBg}; color: ${badgeColor}; font-size: 10.5px; font-weight: 800; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em;">
+                        ${cell.intervention_type || cell.priority_class + ' Urgency'}
+                    </span>
+                    <span style="font-size: 11.5px; font-weight: 800; color: #d97706;">
+                        Score: ${Number(cell.priority_score).toFixed(1)} / 100
+                    </span>
                 </div>
 
-                <div style="font-weight:900; font-size:16px; text-transform:uppercase; margin-bottom:2px;">
-                    ${cell.priority_class} Priority
+                <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">
+                    ${cell.priority_class} Cooling Urgency
                 </div>
 
-                <div style="font-weight:bold; font-size:13px; color:#111; margin-bottom:8px; border-bottom:2px dashed #000; padding-bottom:4px;">
-                    Priority Score: <span style="font-size:16px; font-weight:900; color:#d97706;">${Number(cell.priority_score).toFixed(1)}</span> / 100
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                        <div style="font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase;">Ground Heat (LST)</div>
+                        <div style="font-size: 13px; font-weight: 800; color: #dc2626;">${Number(cell.LST).toFixed(1)}°C</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                        <div style="font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase;">Tree Cover (Veg)</div>
+                        <div style="font-size: 13px; font-weight: 800; color: #059669;">${(Number(cell.vegetation_fraction) * 100).toFixed(0)}%</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                        <div style="font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase;">Plant Health (NDVI)</div>
+                        <div style="font-size: 12px; font-weight: 800; color: #0f172a;">${Number(cell.NDVI).toFixed(2)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                        <div style="font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase;">Concrete (NDBI)</div>
+                        <div style="font-size: 12px; font-weight: 800; color: #0f172a;">${Number(cell.NDBI).toFixed(2)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                        <div style="font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase;">Bare Soil (BSI)</div>
+                        <div style="font-size: 12px; font-weight: 800; color: #0f172a;">${Number(cell.BSI).toFixed(2)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                        <div style="font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase;">Moisture (NDWI)</div>
+                        <div style="font-size: 12px; font-weight: 800; color: #0f172a;">${Number(cell.NDWI).toFixed(2)}</div>
+                    </div>
                 </div>
 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size:11px; font-weight:700; background:#f8fafc; padding:6px; border:2px solid #000; border-radius:8px; margin-bottom:6px;">
-                    <div>🌡️ LST: <b>${Number(cell.LST).toFixed(1)}°C</b></div>
-                    <div>🌿 Veg: <b>${(Number(cell.vegetation_fraction) * 100).toFixed(0)}%</b></div>
-                    <div>🟢 NDVI: <b>${Number(cell.NDVI).toFixed(2)}</b></div>
-                    <div>🏗️ NDBI: <b>${Number(cell.NDBI).toFixed(2)}</b></div>
-                    <div>⏳ BSI: <b>${Number(cell.BSI).toFixed(2)}</b></div>
-                    <div>💧 NDWI: <b>${Number(cell.NDWI).toFixed(2)}</b></div>
+                <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 8px 10px; font-size: 11.5px; color: #065f46; font-weight: 600; line-height: 1.4; margin-bottom: 6px;">
+                    💡 <strong>AI Recommendation:</strong> ${cell.recommendation || 'Plant shade trees to lower surface heat absorption.'}
                 </div>
 
-                <div style="font-size:10px; font-weight:bold; color:#475569; margin-bottom:6px;">
-                    📍 Coords: ${Number(cell.latitude).toFixed(5)}, ${Number(cell.longitude).toFixed(5)}
-                </div>
-
-                <div style="font-size:10.5px; font-weight:700; background:#fff7ed; padding:6px; border:2px solid #000; border-radius:6px; margin-top:4px;">
-                    💡 <i>"${cell.recommendation || 'No recommendation provided.'}"</i>
+                <div style="font-size: 9.5px; color: #94a3b8; text-align: right;">
+                    📍 Lat: ${Number(cell.latitude).toFixed(5)}, Lon: ${Number(cell.longitude).toFixed(5)}
                 </div>
             </div>
         `;
@@ -601,7 +739,8 @@ function recommendTreeLocations() {
         treeMarkers.push(marker);
     });
 
-    showMessage(`${recommendations.length} tree planting locations pinned on map`);
+    updateKpiInterventions();
+    showMessage(`${recommendations.length} shade trees placed at priority hotspots`);
 }
 
 // ============================================================
@@ -690,8 +829,36 @@ function recommendMistSprayerLocations() {
         mistMarkers.push(marker);
     });
 
-    showMessage(`${recommendations.length} mist sprayers pinned across walking paths`);
+    updateKpiInterventions();
+    showMessage(`${recommendations.length} mist sprayers placed along student walkways`);
 }
+
+function clearTrees() {
+    treeMarkers.forEach(m => m.remove());
+    treeMarkers = [];
+    updateKpiInterventions();
+    showMessage('Tree pins removed from map');
+}
+
+function clearMist() {
+    mistMarkers.forEach(m => m.remove());
+    mistMarkers = [];
+    updateKpiInterventions();
+    showMessage('Mist sprayer pins removed from map');
+}
+
+function clearAllInterventions() {
+    treeMarkers.forEach(m => m.remove());
+    treeMarkers = [];
+    mistMarkers.forEach(m => m.remove());
+    mistMarkers = [];
+    updateKpiInterventions();
+    showMessage('All simulated items cleared from map');
+}
+
+window.clearTrees = clearTrees;
+window.clearMist = clearMist;
+window.clearAllInterventions = clearAllInterventions;
 
 // ============================================================
 // SCENARIO 3: HUMAN THERMAL STRESS (IMD HEAT INDEX ZONES)
@@ -891,6 +1058,23 @@ function buildHeatZoneDatePicker() {
     select.value = currentHeatZoneDate || heatZoneManifest.today;
 }
 
+// Tracks a marker placed on the clicked heat zone
+let heatZoneHighlightMarker = null;
+
+function closeHeatZoneDetail() {
+    const panel = document.getElementById('heatZoneDetailPanel');
+    if (panel) { panel.style.display = 'none'; }
+    if (heatZoneHighlightMarker) {
+        heatZoneHighlightMarker.remove();
+        heatZoneHighlightMarker = null;
+    }
+    if (activeComicPopup) { activeComicPopup.remove(); activeComicPopup = null; }
+    // Restore the prediction widget
+    const predCard = document.getElementById('rightPredictionCard');
+    if (predCard && predCard.innerHTML.trim() !== '') predCard.style.display = '';
+}
+window.closeHeatZoneDetail = closeHeatZoneDetail;
+
 function addHeatZoneClickInteraction() {
     map.on('click', 'heat-risk-zones-fill', function (event) {
         if (!event.features || !event.features.length) return;
@@ -899,114 +1083,137 @@ function addHeatZoneClickInteraction() {
         const props = feature.properties;
         const coordinates = event.lngLat;
 
-        if (activeComicPopup) {
-            activeComicPopup.remove();
-        }
+        // Remove any previous popup (we now use the side panel)
+        if (activeComicPopup) { activeComicPopup.remove(); activeComicPopup = null; }
 
-        // hhsi_class drives the headline "Thermal Risk" now (HHSI = heat +
-        // vulnerability combined), not the raw IMD risk_class — that's why
-        // this switched from risk_class to hhsi_class vs. the old popup.
         const hhsiClass = props.hhsi_class || 'Normal / Safe';
         const badgeBg = HEAT_ZONE_COLORS[hhsiClass] || '#9ca3af';
         const classInfo = heatZoneLegendData && heatZoneLegendData.zones
             ? heatZoneLegendData.zones[hhsiClass]
             : null;
 
-        const advisoryListHTML = (classInfo && classInfo.advisory)
-            ? classInfo.advisory.map(line => `<li>${line}</li>`).join('')
-            : '<li>No advisory data available.</li>';
-
-        // Short display labels for the HHSI badge. This mapping is a
-        // display choice, not derived from the model's own class names —
-        // adjust freely.
         const THERMAL_RISK_LABEL = {
-            'Extreme Danger': 'Extreme Danger',
-            'Danger': 'Danger',
-            'Extreme Caution': 'Extreme Caution',
-            'Caution': 'Caution',
-            'Normal / Safe': 'SAFE'
+            'Extreme Danger': '🔴 Extreme Danger',
+            'Danger': '🟠 Danger',
+            'Extreme Caution': '🟡 Extreme Caution',
+            'Caution': '🟡 Caution',
+            'Normal / Safe': '🟢 Safe'
         };
-        const thermalRiskLabel = THERMAL_RISK_LABEL[hhsiClass] || hhsiClass.toUpperCase();
-
-        const sectionHeader = (label) => `
-            <tr>
-                <td colspan="2" style="padding:8px 0 3px 0; font-weight:900; font-size:10.5px; letter-spacing:0.5px; text-transform:uppercase; color:#111; border-bottom:2px solid #000;">${label}</td>
-            </tr>
-        `;
-        const row = (label, value) => `
-            <tr>
-                <td style="padding:3px 6px 3px 0; font-weight:700; color:#334155;">${label}</td>
-                <td style="padding:3px 0; text-align:right; font-weight:800;">${value}</td>
-            </tr>
-        `;
+        const thermalRiskLabel = THERMAL_RISK_LABEL[hhsiClass] || hhsiClass;
         const fmt = (v, unit = '', digits = null) =>
             v != null ? `${digits != null ? Number(v).toFixed(digits) : v}${unit}` : 'N/A';
 
-        const sectionsHTML = `
-            ${sectionHeader('Human Thermal Stress')}
-            ${row('HHSI', fmt(props.HHSI_max, '', 1))}
-            <tr>
-                <td style="padding:3px 6px 3px 0; font-weight:700; color:#334155;">Thermal Risk</td>
-                <td style="padding:3px 0; text-align:right;">
-                    <span style="background:${badgeBg}; color:#fff; font-weight:800; padding:2px 8px; border-radius:10px; font-size:10.5px;">${thermalRiskLabel}</span>
-                </td>
-            </tr>
-
-            ${sectionHeader('Weather')}
-            ${row('Air Temperature', fmt(props.air_temp, '°C'))}
-            ${row('Relative Humidity', fmt(props.rel_humidity, '%'))}
-            ${row('Wind Speed', fmt(props.wind_speed, ' m/s'))}
-            ${row('Solar Radiation', fmt(props.solar_rad_W_m2, ' W/m²'))}
-
-            ${sectionHeader('Environmental Factors')}
-            ${row('LST', fmt(props.LST, '°C'))}
-            ${row('NDVI', fmt(props.NDVI))}
-            ${row('Vegetation Cover', fmt(props.vegetation_cover_pct, '%'))}
-
-            ${sectionHeader('Vulnerability')}
-            ${row('Population Density', props.population_density_class || 'N/A')}
-            ${row('Outdoor Exposure', props.outdoor_exposure || 'N/A')}
-            ${row('Nearby Hospital', fmt(props.dist_hospital_km, ' km'))}
+        // ── Place an elegant location pin marker on the clicked point ──
+        if (heatZoneHighlightMarker) heatZoneHighlightMarker.remove();
+        const markerEl = document.createElement('div');
+        markerEl.className = 'zone-location-marker';
+        markerEl.innerHTML = `
+            <div style="
+                width: 28px;
+                height: 38px;
+                filter: drop-shadow(0 4px 8px rgba(15,23,42,0.3));
+                animation: markerDropIn 0.25s cubic-bezier(0.16,1,0.3,1);
+                pointer-events: none;
+            ">
+                <svg width="28" height="38" viewBox="0 0 28 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M14 0C6.26801 0 0 6.26801 0 14C0 23.8 12.3 36.8 12.8 37.4C13.4 38 14.6 38 15.2 37.4C15.7 36.8 28 23.8 28 14C28 6.26801 21.732 0 14 0Z" fill="#0f172a"/>
+                    <circle cx="14" cy="13.5" r="6.5" fill="#ffffff"/>
+                    <circle cx="14" cy="13.5" r="4" fill="${badgeBg}"/>
+                </svg>
+            </div>
         `;
+        const MaplibreMarker = window.maplibregl ? maplibregl.Marker : mapboxgl.Marker;
+        heatZoneHighlightMarker = new MaplibreMarker({ element: markerEl, anchor: 'bottom' })
+            .setLngLat(coordinates)
+            .addTo(map);
 
-        const popupHTML = `
-            <div style="line-height:1.35; font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; min-width:230px;">
-                <div style="font-weight:900; font-size:15px; margin-bottom:2px;">
-                    Zone ${props.sector_id || '?'}
-                </div>
+        // ── Build the advisory list ──
+        const advisoryListHTML = (classInfo && classInfo.advisory)
+            ? classInfo.advisory.map(line => `
+                <div style="display:flex;align-items:flex-start;gap:7px;font-size:12px;color:#334155;margin-bottom:5px;">
+                    <span style="color:#d97706;font-weight:800;flex-shrink:0;margin-top:1px;">⚠</span>
+                    <span>${line}</span>
+                </div>`).join('')
+            : '<div style="color:#64748b;font-size:12px;">No advisory data.</div>';
 
-                <table style="width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:8px;">
-                    ${sectionsHTML}
-                </table>
-
-                <div style="font-size:11px; font-weight:700; color:#111; margin-bottom:6px;">
-                    ${classInfo ? classInfo.summary : ''}
-                </div>
-
-                <div style="font-size:10.5px; font-weight:700; background:#fff7ed; padding:6px; border:2px solid #000; border-radius:6px;">
-                    <b>Advisories & Precautions:</b>
-                    <ul style="margin:4px 0 0 16px; padding:0;">
-                        ${advisoryListHTML}
-                    </ul>
-                </div>
-
-                <div style="font-size:10px; font-weight:bold; color:#475569; margin-top:6px;">
-                    📐 Area: ${props.area_m2 ? Math.round(props.area_m2) + ' m²' : 'N/A'}
-                </div>
+        // ── Stat card helper ──
+        const statCard = (icon, label, value, color) => `
+            <div style="
+                background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;
+                padding:10px 12px;display:flex;flex-direction:column;gap:2px;
+            ">
+                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;">${icon} ${label}</div>
+                <div style="font-size:15px;font-weight:800;color:${color || '#0f172a'};">${value}</div>
             </div>
         `;
 
-        const PopupClass = window.maplibregl ? maplibregl.Popup : mapboxgl.Popup;
+        // ── Populate the panel ──
+        const panel = document.getElementById('heatZoneDetailPanel');
+        const titleEl = document.getElementById('heatZoneDetailTitle');
+        const badgeEl = document.getElementById('heatZoneDetailBadge');
+        const bodyEl  = document.getElementById('heatZoneDetailBody');
+        if (!panel || !titleEl || !badgeEl || !bodyEl) return;
 
-        activeComicPopup = new PopupClass({
-            className: 'comic-popup',
-            closeButton: true,
-            closeOnClick: false,
-            offset: 12
-        })
-            .setLngLat(coordinates)
-            .setHTML(popupHTML)
-            .addTo(map);
+        titleEl.textContent = `Zone ${props.sector_id || '?'}`;
+        badgeEl.innerHTML = `<span style="
+            display:inline-block;background:${badgeBg};color:#fff;
+            font-size:11px;font-weight:800;padding:3px 10px;
+            border-radius:99px;letter-spacing:0.04em;
+        ">${(THERMAL_RISK_LABEL[hhsiClass] || hhsiClass).replace(/^[^a-zA-Z]+/, '')}</span>`;
+
+        bodyEl.innerHTML = `
+            <!-- Summary -->
+            ${ classInfo && classInfo.summary ? `
+            <div style="
+                background:${badgeBg}18;border-left:3px solid ${badgeBg};
+                border-radius:8px;padding:10px 12px;margin-bottom:14px;
+                font-size:12px;font-weight:600;color:#334155;line-height:1.5;
+            ">${classInfo.summary}</div>` : ''}
+
+            <!-- Stats grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+                ${statCard('🌡️', 'Ground Heat', fmt(props.LST, '°C') , '#dc2626')}
+                ${statCard('🌬️', 'Air Temp', fmt(props.air_temp, '°C'), '#ea580c')}
+                ${statCard('💧', 'Humidity', fmt(props.rel_humidity, '%'), '#0284c7')}
+                ${statCard('🌿', 'Plant Cover', fmt(props.vegetation_cover_pct, '%'), '#059669')}
+                ${statCard('☀️', 'Solar Radiation', fmt(props.solar_rad_W_m2, ' W/m²'), '#d97706')}
+                ${statCard('🏥', 'Hospital Dist.', fmt(props.dist_hospital_km, ' km'), '#7c3aed')}
+            </div>
+
+            <!-- HHSI Score row -->
+            <div style="
+                background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;
+                padding:10px 12px;margin-bottom:14px;
+                display:flex;align-items:center;justify-content:space-between;
+            ">
+                <div>
+                    <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Heat Stress Score (HHSI)</div>
+                    <div style="font-size:20px;font-weight:800;color:${badgeBg};margin-top:2px;">${fmt(props.HHSI_max, '', 1)}</div>
+                </div>
+                <div style="font-size:11px;color:#64748b;max-width:145px;text-align:right;line-height:1.4;" title="Pedestrian walking heat stress calculated from ground surface heat and tree shade deficit: LST_norm × (1 - NDVI_norm)">
+                    Pedestrian exposure: <strong style="color:#0f172a;cursor:help;text-decoration:underline dotted #94a3b8;">${props.outdoor_exposure || 'N/A'}</strong> ℹ️
+                </div>
+            </div>
+
+            <!-- Precautions -->
+            <div style="margin-bottom:10px;">
+                <div style="font-weight:800;font-size:11px;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">
+                    Recommended Precautions
+                </div>
+                ${advisoryListHTML}
+            </div>
+
+            <!-- Area tag -->
+            <div style="font-size:10.5px;color:#94a3b8;font-weight:600;text-align:right;padding-top:6px;border-top:1px solid #e2e8f0;">
+                📐 Zone area: ${props.area_m2 ? Math.round(props.area_m2) + ' m²' : 'N/A'}
+            </div>
+        `;
+
+        // Show panel with flex layout
+        panel.style.display = 'flex';
+        // If the heatwave prediction widget is visible, temporarily hide it
+        const predCard = document.getElementById('rightPredictionCard');
+        if (predCard) predCard.style.display = 'none';
     });
 
     map.on('mouseenter', 'heat-risk-zones-fill', () => {
@@ -1028,24 +1235,29 @@ function populateHeatZoneLegendPanel() {
         const info = heatZoneLegendData.zones[riskClass];
         if (!info) return '';
         const color = HEAT_ZONE_COLORS[riskClass] || '#9ca3af';
-
+        const emojis = {
+            'Extreme Danger': '🔴',
+            'Danger': '🟠',
+            'Extreme Caution': '🟡',
+            'Caution': '🟡',
+            'Normal / Safe': '🟢'
+        };
         return `
-            <div class="heat-legend-item" style="
-                display:flex;
-                align-items:flex-start;
-                gap:8px;
-                margin-bottom:8px;
-                padding:8px;
-                border-radius:8px;
-                background:rgba(255,255,255,0.04);
+            <div style="
+                display:flex;align-items:flex-start;gap:10px;
+                margin-bottom:8px;padding:10px 12px;
+                border-radius:10px;
+                background:${color}14;
+                border:1.5px solid ${color}44;
             ">
                 <span style="
-                    width:12px; height:12px; border-radius:3px;
-                    background:${color}; margin-top:3px; flex-shrink:0;
+                    width:13px;height:13px;border-radius:3px;
+                    background:${color};margin-top:3px;flex-shrink:0;
+                    box-shadow:0 1px 4px ${color}55;
                 "></span>
-                <div>
-                    <div style="font-weight:700;">${riskClass}</div>
-                    <div style="opacity:0.85; font-size:11px; margin-top:2px;">
+                <div style="min-width:0;">
+                    <div style="font-weight:800;font-size:12px;color:#0f172a;">${emojis[riskClass] || ''} ${riskClass}</div>
+                    <div style="color:#64748b;font-size:11px;margin-top:2px;line-height:1.4;word-break:break-word;">
                         ${info.summary}
                     </div>
                 </div>
@@ -1061,6 +1273,12 @@ function populateHeatZoneLegendPanel() {
 let predictionsSummaryData = null;
 let predictionsRecommendationsData = null;
 let activePredictionDate = "2026-05-13";
+
+function switchPredictionDate(dateStr) {
+    activePredictionDate = dateStr;
+    renderPredictionWidget();
+}
+window.switchPredictionDate = switchPredictionDate;
 
 document.addEventListener("DOMContentLoaded", () => {
     loadRightPredictionWidget();
@@ -1081,144 +1299,219 @@ function loadRightPredictionWidget() {
     .catch(err => console.error("Error loading prediction datasets:", err));
 }
 
-function renderPredictionWidget() {
-    const card = document.getElementById('rightPredictionCard');
-    if (!card) return;
 
-    // Apply floating widget styling
-    card.style.cssText = `
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        width: 310px;
-        z-index: 200;
-        background: rgba(15, 23, 42, 0.92);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 12px;
-        padding: 14px;
-        color: #edf7f2;
-        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
-        font-family: 'Inter', sans-serif;
-    `;
+let isPredictionWidgetCollapsed = false;
 
-    const availableDates = Object.keys(predictionsSummaryData).sort();
-    if (!availableDates.includes(activePredictionDate)) {
-        activePredictionDate = availableDates[0];
-    }
-
-    const summary = predictionsSummaryData[activePredictionDate] || {};
-    const rec = predictionsRecommendationsData[activePredictionDate] || {};
-
-    const isHeatwave = (summary.prediction || '').toUpperCase() === 'HEATWAVE';
-    const badgeColor = isHeatwave ? '#ef4444' : '#10b981';
-    const badgeBg = isHeatwave ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)';
-    const probPct = ((rec.heatwave_probability || summary.probability_of_heatwave || 0) * 100).toFixed(0);
-
-    // Date Switcher Tabs
-    const tabsHTML = availableDates.map(dateStr => {
-        const dayLabel = dateStr.split('-')[2] + ' May';
-        const isActive = dateStr === activePredictionDate;
-        return `
-            <button onclick="switchPredictionDate('${dateStr}')" style="
-                flex: 1;
-                padding: 5px 0;
-                font-size: 11px;
-                font-weight: 700;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-                transition: all 0.2s ease;
-                background: ${isActive ? 'var(--brand-primary, #3b82f6)' : 'rgba(255, 255, 255, 0.08)'};
-                color: ${isActive ? '#ffffff' : '#94a3b8'};
-            ">${dayLabel}</button>
-        `;
-    }).join('');
-
-    // Hourly Status Timeline Pills
-    const hourlyEntries = rec.hourly_status ? Object.entries(rec.hourly_status) : [];
-    const hourlyPillsHTML = hourlyEntries.map(([hour, status]) => {
-        let pillBg = '#10b981';
-        if (status === 'UNSAFE') pillBg = '#ef4444';
-        if (status === 'CAUTION') pillBg = '#f59e0b';
-
-        return `
-            <div title="${hour}:00 - ${status}" style="
-                display: flex; flex-direction: column; align-items: center; gap: 3px;
-            ">
-                <span style="font-size: 8px; color: #64748b; font-weight: 600;">${hour}h</span>
-                <div style="
-                    width: 14px; height: 14px; border-radius: 3px; background: ${pillBg};
-                    display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 900; color: #000;
-                ">
-                    ${status[0]}
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    // Recommended Go-Out Windows
-    const goOutWindows = (rec.recommended_go_out_windows || []).map(w => 
-        `<span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;">🟢 ${w}</span>`
-    ).join(' ');
-
-    card.innerHTML = `
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: #94a3b8; text-transform: uppercase;">
-                🔥 Heatwave Forecast
-            </div>
-            <span style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeColor}; font-weight: 800; font-size: 10px; padding: 2px 7px; border-radius: 12px;">
-                ${summary.prediction || 'N/A'}
-            </span>
-        </div>
-
-        <!-- Date Selector Tabs -->
-        <div style="display: flex; gap: 4px; background: rgba(0, 0, 0, 0.3); padding: 3px; border-radius: 8px; margin-bottom: 12px;">
-            ${tabsHTML}
-        </div>
-
-        <!-- Stats Grid -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; background: rgba(255, 255, 255, 0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);">
-            <div>
-                <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">Risk Probability</div>
-                <div style="font-size: 16px; font-weight: 800; color: ${isHeatwave ? '#ef4444' : '#10b981'};">${probPct}%</div>
-            </div>
-            <div>
-                <div style="font-size: 9.5px; color: #64748b; font-weight: 600;">Unsafe Duration</div>
-                <div style="font-size: 13px; font-weight: 700; color: #f8fafc; margin-top: 2px;">${rec.expected_unsafe_duration || '0 hrs'}</div>
-            </div>
-        </div>
-
-        <!-- Danger Window Alert -->
-        <div style="margin-bottom: 10px; font-size: 11px;">
-            <div style="color: #64748b; font-size: 9.5px; font-weight: 600; margin-bottom: 2px;">Peak Danger Window:</div>
-            <div style="color: #fca5a5; font-weight: 700; background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding: 4px 8px; border-radius: 4px;">
-                ⚠️ ${rec.danger_window || 'None'}
-            </div>
-        </div>
-
-        <!-- Safe Windows -->
-        <div style="margin-bottom: 12px;">
-            <div style="color: #64748b; font-size: 9.5px; font-weight: 600; margin-bottom: 4px;">Recommended Outdoor Windows:</div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                ${goOutWindows}
-            </div>
-        </div>
-
-        <!-- Hourly Timeline Bar -->
-        <div>
-            <div style="color: #64748b; font-size: 9.5px; font-weight: 600; margin-bottom: 6px;">Hourly Risk Profile (08:00–20:00):</div>
-            <div style="display: flex; justify-content: space-between; background: rgba(0, 0, 0, 0.4); padding: 6px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05);">
-                ${hourlyPillsHTML}
-            </div>
-        </div>
-    `;
+/* ─── Public helpers exposed to window ─────────────────────── */
+function togglePredictionWidget() {
+    isPredictionWidgetCollapsed = !isPredictionWidgetCollapsed;
+    renderPredictionWidget();
 }
+window.togglePredictionWidget = togglePredictionWidget;
 
 function switchPredictionDate(dateStr) {
     activePredictionDate = dateStr;
     renderPredictionWidget();
 }
-
 window.switchPredictionDate = switchPredictionDate;
+
+/* ─── Main render function ──────────────────────────────────── */
+function renderPredictionWidget() {
+    const card = document.getElementById('rightPredictionCard');
+    if (!card) return;
+
+    const availableDates = Object.keys(predictionsSummaryData || {}).sort();
+    if (!availableDates.length) return;
+
+    if (!availableDates.includes(activePredictionDate)) {
+        activePredictionDate = availableDates[0];
+    }
+
+    const summary = predictionsSummaryData[activePredictionDate] || {};
+    const rec     = predictionsRecommendationsData[activePredictionDate] || {};
+
+    const isHeatwave  = (summary.prediction || '').toUpperCase() === 'HEATWAVE';
+    const badgeColor  = isHeatwave ? '#dc2626' : '#059669';
+    const badgeBg     = isHeatwave ? '#fef2f2' : '#ecfdf5';
+    const badgeBorder = isHeatwave ? '#fecaca' : '#a7f3d0';
+    const probPct     = ((rec.heatwave_probability || summary.probability_of_heatwave || 0) * 100).toFixed(0);
+
+    /* ── Reset card styles ── */
+    card.style.cssText = '';
+    card.className = 'floating-prediction-card';
+    // Remove any old delegated listener so we don't stack them
+    if (card._delegatedListener) {
+        card.removeEventListener('click', card._delegatedListener);
+        card._delegatedListener = null;
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       COLLAPSED STATE — a slim pill the user clicks to expand
+    ───────────────────────────────────────────────────────────── */
+    if (isPredictionWidgetCollapsed) {
+        card.style.cssText = `
+            position: fixed;
+            top: 88px;
+            right: 16px;
+            z-index: 30;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.6);
+            border-radius: 12px;
+            padding: 8px 14px;
+            color: #0f172a;
+            box-shadow: 0 8px 24px rgba(15,23,42,0.10);
+            font-family: 'Plus Jakarta Sans','Inter',sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        `;
+        card.innerHTML = `
+            <span style="font-size:15px;">🔥</span>
+            <span style="font-size:12px;font-weight:700;color:#0f172a;">Heatwave Forecast</span>
+            <span style="background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};font-weight:800;font-size:10px;padding:2px 7px;border-radius:999px;">
+                ${summary.prediction || 'NORMAL'}
+            </span>
+            <span data-action="expand" style="font-size:11px;color:#64748b;font-weight:600;margin-left:auto;white-space:nowrap;">↑ Expand</span>
+        `;
+        // Single delegated listener — clicking anywhere on collapsed card expands
+        card._delegatedListener = () => { isPredictionWidgetCollapsed = false; renderPredictionWidget(); };
+        card.addEventListener('click', card._delegatedListener);
+        return;
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       EXPANDED STATE — full widget
+    ───────────────────────────────────────────────────────────── */
+    card.style.cssText = `
+        position: fixed;
+        top: 88px;
+        right: 16px;
+        width: 330px;
+        max-width: calc(100vw - 32px);
+        z-index: 30;
+        background: rgba(255,255,255,0.97);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        border: 1px solid rgba(255,255,255,0.65);
+        border-radius: 16px;
+        padding: 16px;
+        color: #0f172a;
+        box-shadow: 0 20px 40px -8px rgba(15,23,42,0.14), 0 4px 12px rgba(15,23,42,0.06);
+        font-family: 'Plus Jakarta Sans','Inter',sans-serif;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    `;
+
+    /* Date tabs */
+    const tabsHTML = availableDates.map(dateStr => {
+        const parts    = dateStr.split('-');
+        const dayLabel = (parts[2] || dateStr) + ' May';
+        const isActive = dateStr === activePredictionDate;
+        return `<button data-action="date" data-date="${dateStr}" style="
+            flex:1;padding:6px 0;font-size:11px;font-family:inherit;font-weight:700;
+            border-radius:6px;border:none;cursor:pointer;transition:all 0.15s ease;
+            background:${isActive ? '#059669' : 'transparent'};
+            color:${isActive ? '#fff' : '#64748b'};
+            ${isActive ? 'box-shadow:0 1px 4px rgba(5,150,105,0.25);' : ''}
+        ">${dayLabel}</button>`;
+    }).join('');
+
+    /* Hourly timeline */
+    const hourlyEntries  = rec.hourly_status ? Object.entries(rec.hourly_status) : [];
+    const hourlyPillsHTML = hourlyEntries.map(([hour, status]) => {
+        const pillBg    = status === 'UNSAFE' ? '#dc2626' : status === 'CAUTION' ? '#f59e0b' : '#10b981';
+        return `<div title="${hour}:00 — ${status}" style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+            <span style="font-size:8.5px;color:#94a3b8;font-weight:600;">${hour}h</span>
+            <div style="width:15px;height:15px;border-radius:3px;background:${pillBg};
+                display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;">
+                ${status[0]}
+            </div>
+        </div>`;
+    }).join('');
+
+    /* Safe windows */
+    const goOutWindows = (rec.recommended_go_out_windows || []).map(w =>
+        `<span style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:700;">🟢 ${w}</span>`
+    ).join(' ');
+
+    card.innerHTML = `
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:15px;">🔥</span>
+                <span style="font-size:12px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:0.04em;">Heatwave Forecast</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <span style="background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};font-weight:800;font-size:10.5px;padding:2px 8px;border-radius:999px;">
+                    ${summary.prediction || 'NORMAL'}
+                </span>
+                <button data-action="collapse" title="Minimise" style="
+                    background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:6px;
+                    width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+                    font-size:14px;color:#64748b;cursor:pointer;flex-shrink:0;
+                    transition:all 0.15s ease;
+                ">−</button>
+            </div>
+        </div>
+
+        <!-- Date Tabs -->
+        <div style="display:flex;gap:3px;background:#f1f5f9;padding:3px;border-radius:8px;margin-bottom:12px;border:1px solid #e2e8f0;">
+            ${tabsHTML}
+        </div>
+
+        <!-- Stats Grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;">
+            <div>
+                <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Heatwave Risk</div>
+                <div style="font-size:20px;font-weight:800;color:${isHeatwave ? '#dc2626' : '#059669'};margin-top:1px;">${probPct}%</div>
+            </div>
+            <div>
+                <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Unsafe Hours</div>
+                <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:4px;">${rec.expected_unsafe_duration || '0 hrs'}</div>
+            </div>
+        </div>
+
+        <!-- Danger Window -->
+        <div style="margin-bottom:10px;">
+            <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:3px;text-transform:uppercase;">Peak Danger Window:</div>
+            <div style="color:#991b1b;font-weight:700;background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #dc2626;padding:5px 8px;border-radius:5px;font-size:12px;">
+                ⚠️ ${rec.danger_window || 'None (Safe Conditions)'}
+            </div>
+        </div>
+
+        <!-- Safe Windows -->
+        <div style="margin-bottom:12px;">
+            <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:4px;text-transform:uppercase;">Best Outdoor Windows:</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">${goOutWindows}</div>
+        </div>
+
+        <!-- Hourly Timeline -->
+        <div>
+            <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:5px;text-transform:uppercase;">Hourly Safety (08:00–20:00):</div>
+            <div style="display:flex;justify-content:space-between;background:#f8fafc;padding:8px 10px;border-radius:8px;border:1px solid #e2e8f0;flex-wrap:wrap;gap:4px;">
+                ${hourlyPillsHTML}
+            </div>
+        </div>
+    `;
+
+    /* ── Event delegation: one listener handles ALL buttons ── */
+    card._delegatedListener = (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        if (action === 'collapse') {
+            isPredictionWidgetCollapsed = true;
+            renderPredictionWidget();
+        } else if (action === 'date') {
+            activePredictionDate = btn.dataset.date;
+            renderPredictionWidget();
+        } else if (action === 'expand') {
+            isPredictionWidgetCollapsed = false;
+            renderPredictionWidget();
+        }
+    };
+    card.addEventListener('click', card._delegatedListener);
+}
