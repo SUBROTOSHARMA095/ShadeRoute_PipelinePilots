@@ -278,6 +278,11 @@ map.on('load', () => {
 
     // 7. Human WBGT Heat Stress Zones (GeoJSON polygons + legend JSON)
     loadHeatRiskZones();
+
+    // 8. Medical Facility Markers (Campus Clinic & IMS & SUM Hospital)
+    if (typeof initMedicalFacilityMarkers === 'function') {
+        initMedicalFacilityMarkers();
+    }
 });
 
 // ============================================================
@@ -1267,18 +1272,201 @@ function populateHeatZoneLegendPanel() {
 }
 
 // ============================================================
-// FLOATING RIGHT PREDICTION WIDGET
+// FLOATING RIGHT PREDICTION & HOSPITAL SURGE WIDGET
 // ============================================================
 
 let predictionsSummaryData = null;
 let predictionsRecommendationsData = null;
+let hospitalSurgeData = null;
 let activePredictionDate = "2026-05-13";
+let activePredictionTab = "weather"; // "weather" | "surge"
+let activeSurgeFacility = "soa_student_health_centre"; // "soa_student_health_centre" | "jagamara_uphc" | "astang_ayurveda" | "sum_hospital"
+let showSurgeCitations = false;
+let isPredictionWidgetCollapsed = false;
 
 function switchPredictionDate(dateStr) {
     activePredictionDate = dateStr;
     renderPredictionWidget();
 }
 window.switchPredictionDate = switchPredictionDate;
+
+function togglePredictionWidget() {
+    isPredictionWidgetCollapsed = !isPredictionWidgetCollapsed;
+    renderPredictionWidget();
+}
+window.togglePredictionWidget = togglePredictionWidget;
+
+let medicalFacilityMarkers = {};
+
+function initMedicalFacilityMarkers() {
+    if (!hospitalSurgeData || !hospitalSurgeData.facilities || !map) return;
+
+    // Clear existing if any
+    Object.values(medicalFacilityMarkers).forEach(m => m.remove());
+    medicalFacilityMarkers = {};
+
+    const MaplibreMarker = window.maplibregl ? maplibregl.Marker : mapboxgl.Marker;
+    const MaplibrePopup = window.maplibregl ? maplibregl.Popup : mapboxgl.Popup;
+
+    Object.entries(hospitalSurgeData.facilities).forEach(([facilityKey, fac]) => {
+        if (!fac.coordinates || !Array.isArray(fac.coordinates)) return;
+
+        const isStudentCenter = facilityKey === 'soa_student_health_centre';
+        const isAyurveda = facilityKey === 'astang_ayurveda';
+        const isSum = facilityKey === 'sum_hospital';
+
+        let markerClass = 'clinic-marker';
+        let iconCircleClass = 'clinic-icon-circle';
+        let iconChar = '🩺';
+        let badgeLabel = `${fac.capacity_beds} Beds`;
+
+        if (isStudentCenter) {
+            markerClass = 'clinic-marker';
+            iconCircleClass = 'clinic-icon-circle';
+            iconChar = '🩺';
+            badgeLabel = 'Free for Students';
+        } else if (isAyurveda) {
+            markerClass = 'clinic-marker';
+            iconCircleClass = 'ambulance-icon-circle';
+            iconChar = '🌿';
+            badgeLabel = 'Ayurvedic Hospital';
+        } else if (isSum) {
+            markerClass = 'hospital-marker';
+            iconCircleClass = 'hospital-icon-circle';
+            iconChar = '🏥';
+            badgeLabel = '1,750 Beds • Referral';
+        } else {
+            markerClass = 'clinic-marker';
+            iconCircleClass = 'clinic-icon-circle';
+            iconChar = '🏥';
+            badgeLabel = 'Govt. UPHC';
+        }
+
+        const markerEl = document.createElement('div');
+        markerEl.className = `medical-facility-marker ${markerClass}`;
+        markerEl.setAttribute('data-facility-key', facilityKey);
+        markerEl.title = `Click to inspect ${fac.name}`;
+
+        markerEl.innerHTML = `
+            <div class="facility-icon-circle ${iconCircleClass}">
+                ${iconChar}
+            </div>
+            <div class="facility-label-group">
+                <span class="facility-name-text">${fac.name}</span>
+                <span class="facility-tier-badge">${badgeLabel}</span>
+            </div>
+        `;
+
+        const popupContent = document.createElement('div');
+        popupContent.className = 'facility-popup-content';
+        popupContent.innerHTML = `
+            <div class="facility-popup-header">
+                <div class="facility-icon-circle ${iconCircleClass}" style="width:26px;height:26px;font-size:13px;">
+                    ${iconChar}
+                </div>
+                <div>
+                    <div class="facility-popup-title">${fac.name}</div>
+                    <div class="facility-popup-subtitle">${fac.tier}</div>
+                </div>
+            </div>
+            ${fac.eligibility ? `
+            <div style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:4px 7px;border-radius:5px;font-size:10px;font-weight:700;margin-bottom:8px;">
+                ℹ️ ${fac.eligibility}
+            </div>` : ''}
+            <div style="font-size:10.5px;color:#475569;margin-bottom:8px;line-height:1.4;">
+                ${fac.description || fac.location}
+            </div>
+            <div class="facility-popup-stat-row">
+                <span>Location:</span>
+                <strong style="text-align:right;max-width:160px;font-size:10px;">${fac.location}</strong>
+            </div>
+            ${fac.plus_code ? `
+            <div class="facility-popup-stat-row">
+                <span>Plus Code:</span>
+                <strong style="color:#0284c7;font-family:monospace;font-size:10.5px;">${fac.plus_code}</strong>
+            </div>` : ''}
+            <div class="facility-popup-stat-row">
+                <span>Distance from ITER:</span>
+                <strong style="color:#b91c1c;">${fac.dist_from_iter_km === 0 ? 'On-Campus (0 km)' : fac.dist_from_iter_km + ' km (~' + fac.drive_time_min + ' min drive)'}</strong>
+            </div>
+            <div class="facility-popup-stat-row">
+                <span>Observation / Inpatient Beds:</span>
+                <strong>${fac.capacity_beds} beds</strong>
+            </div>
+            <div class="facility-popup-stat-row">
+                <span>Baseline OPD Load:</span>
+                <strong>${fac.baseline_opd.toLocaleString()} / day</strong>
+            </div>
+            <div class="facility-popup-stat-row">
+                <span>Baseline Urgent / ER:</span>
+                <strong>${fac.baseline_emergency} / day</strong>
+            </div>
+            <button class="facility-popup-btn" data-action="popup-view-surge" data-key="${facilityKey}">
+                📊 View Patient Surge Forecast
+            </button>
+            ${isStudentCenter ? `
+            <button class="facility-popup-btn" style="background:#dc2626;margin-top:4px;" onclick="focusFacilityInWidget('sum_hospital')">
+                🚑 Transfer Route to IMS & SUM Hospital
+            </button>` : ''}
+        `;
+
+        popupContent.querySelector('[data-action="popup-view-surge"]').addEventListener('click', () => {
+            focusFacilityInWidget(facilityKey);
+        });
+
+        const popup = new MaplibrePopup({ offset: 25, closeButton: true, maxWidth: '300px' })
+            .setDOMContent(popupContent);
+
+        const marker = new MaplibreMarker({ element: markerEl, anchor: 'bottom' })
+            .setLngLat(fac.coordinates)
+            .setPopup(popup)
+            .addTo(map);
+
+        medicalFacilityMarkers[facilityKey] = marker;
+    });
+}
+
+function focusFacilityInWidget(facilityKey) {
+    activePredictionTab = 'surge';
+    activeSurgeFacility = facilityKey;
+    isPredictionWidgetCollapsed = false;
+    renderPredictionWidget();
+    focusFacilityOnMap(facilityKey, false);
+}
+window.focusFacilityInWidget = focusFacilityInWidget;
+
+function switchSurgeFacility(facilityKey) {
+    activeSurgeFacility = facilityKey;
+    renderPredictionWidget();
+    focusFacilityOnMap(facilityKey, true);
+}
+window.switchSurgeFacility = switchSurgeFacility;
+
+function focusFacilityOnMap(facilityKey, openPopup = true) {
+    const fac = hospitalSurgeData && hospitalSurgeData.facilities ? hospitalSurgeData.facilities[facilityKey] : null;
+    if (!fac || !fac.coordinates || !map) return;
+
+    let zoomLevel = 17.0;
+    if (facilityKey === 'soa_student_health_centre') zoomLevel = 17.8;
+    else if (facilityKey === 'sum_hospital') zoomLevel = 16.0;
+
+    map.flyTo({
+        center: fac.coordinates,
+        zoom: zoomLevel,
+        speed: 1.2,
+        curve: 1.4,
+        essential: true
+    });
+
+    if (openPopup && medicalFacilityMarkers[facilityKey]) {
+        const m = medicalFacilityMarkers[facilityKey];
+        const p = m.getPopup();
+        if (p && !p.isOpen()) {
+            m.togglePopup();
+        }
+    }
+}
+window.focusFacilityOnMap = focusFacilityOnMap;
 
 document.addEventListener("DOMContentLoaded", () => {
     loadRightPredictionWidget();
@@ -1287,33 +1475,20 @@ document.addEventListener("DOMContentLoaded", () => {
 function loadRightPredictionWidget() {
     Promise.all([
         fetch('/data/predictions_may2026.json').then(res => res.json()).catch(() => null),
-        fetch('/data/hourly_predictions_may2026.json').then(res => res.json()).catch(() => null)
+        fetch('/data/hourly_predictions_may2026.json').then(res => res.json()).catch(() => null),
+        fetch('/data/hospital_surge_predictions_may2026.json').then(res => res.json()).catch(() => null)
     ])
-    .then(([summary, hourlyData]) => {
+    .then(([summary, hourlyData, surgeData]) => {
         if (!summary || !hourlyData) return;
         predictionsSummaryData = summary;
         predictionsRecommendationsData = hourlyData;
+        hospitalSurgeData = surgeData;
 
         renderPredictionWidget();
+        initMedicalFacilityMarkers();
     })
     .catch(err => console.error("Error loading prediction datasets:", err));
 }
-
-
-let isPredictionWidgetCollapsed = false;
-
-/* ─── Public helpers exposed to window ─────────────────────── */
-function togglePredictionWidget() {
-    isPredictionWidgetCollapsed = !isPredictionWidgetCollapsed;
-    renderPredictionWidget();
-}
-window.togglePredictionWidget = togglePredictionWidget;
-
-function switchPredictionDate(dateStr) {
-    activePredictionDate = dateStr;
-    renderPredictionWidget();
-}
-window.switchPredictionDate = switchPredictionDate;
 
 /* ─── Main render function ──────────────────────────────────── */
 function renderPredictionWidget() {
@@ -1329,6 +1504,8 @@ function renderPredictionWidget() {
 
     const summary = predictionsSummaryData[activePredictionDate] || {};
     const rec     = predictionsRecommendationsData[activePredictionDate] || {};
+    const surge   = (hospitalSurgeData && hospitalSurgeData.daily_forecasts) 
+                    ? hospitalSurgeData.daily_forecasts[activePredictionDate] : null;
 
     const isHeatwave  = (summary.prediction || '').toUpperCase() === 'HEATWAVE';
     const badgeColor  = isHeatwave ? '#dc2626' : '#059669';
@@ -1339,7 +1516,6 @@ function renderPredictionWidget() {
     /* ── Reset card styles ── */
     card.style.cssText = '';
     card.className = 'floating-prediction-card';
-    // Remove any old delegated listener so we don't stack them
     if (card._delegatedListener) {
         card.removeEventListener('click', card._delegatedListener);
         card._delegatedListener = null;
@@ -1368,15 +1544,26 @@ function renderPredictionWidget() {
             gap: 10px;
             cursor: pointer;
         `;
+        const collapseIcon = activePredictionTab === 'surge' ? '🏥' : '🔥';
+        const collapseLabel = activePredictionTab === 'surge' ? 'Patient Surge' : 'Heatwave Forecast';
+        const collapseBadge = activePredictionTab === 'surge' && surge
+            ? `+${surge.surge_percent}%`
+            : (summary.prediction || 'NORMAL');
+        const collapseBadgeColor = activePredictionTab === 'surge' && surge
+            ? (surge.surge_percent >= 20 ? '#dc2626' : surge.surge_percent >= 10 ? '#f59e0b' : '#059669')
+            : badgeColor;
+        const collapseBadgeBg = activePredictionTab === 'surge' && surge
+            ? (surge.surge_percent >= 20 ? '#fef2f2' : surge.surge_percent >= 10 ? '#fffbeb' : '#ecfdf5')
+            : badgeBg;
+
         card.innerHTML = `
-            <span style="font-size:15px;">🔥</span>
-            <span style="font-size:12px;font-weight:700;color:#0f172a;">Heatwave Forecast</span>
-            <span style="background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};font-weight:800;font-size:10px;padding:2px 7px;border-radius:999px;">
-                ${summary.prediction || 'NORMAL'}
+            <span style="font-size:15px;">${collapseIcon}</span>
+            <span style="font-size:12px;font-weight:700;color:#0f172a;">${collapseLabel}</span>
+            <span style="background:${collapseBadgeBg};color:${collapseBadgeColor};border:1px solid ${badgeBorder};font-weight:800;font-size:10px;padding:2px 7px;border-radius:999px;">
+                ${collapseBadge}
             </span>
             <span data-action="expand" style="font-size:11px;color:#64748b;font-weight:600;margin-left:auto;white-space:nowrap;">↑ Expand</span>
         `;
-        // Single delegated listener — clicking anywhere on collapsed card expands
         card._delegatedListener = () => { isPredictionWidgetCollapsed = false; renderPredictionWidget(); };
         card.addEventListener('click', card._delegatedListener);
         return;
@@ -1389,20 +1576,32 @@ function renderPredictionWidget() {
         position: fixed;
         top: 88px;
         right: 16px;
-        width: 330px;
+        width: 345px;
         max-width: calc(100vw - 32px);
         z-index: 30;
-        background: rgba(255,255,255,0.97);
+        background: rgba(255,255,255,0.98);
         backdrop-filter: blur(24px) saturate(180%);
         -webkit-backdrop-filter: blur(24px) saturate(180%);
-        border: 1px solid rgba(255,255,255,0.65);
+        border: 1px solid rgba(226,232,240,0.8);
         border-radius: 16px;
-        padding: 16px;
+        padding: 15px;
         color: #0f172a;
-        box-shadow: 0 20px 40px -8px rgba(15,23,42,0.14), 0 4px 12px rgba(15,23,42,0.06);
+        box-shadow: 0 20px 40px -8px rgba(15,23,42,0.16), 0 4px 12px rgba(15,23,42,0.06);
         font-family: 'Plus Jakarta Sans','Inter',sans-serif;
-        max-height: calc(100vh - 120px);
+        max-height: calc(100vh - 110px);
         overflow-y: auto;
+    `;
+
+    /* Sub-navigation tabs: Heat Hazard vs Patient Surge */
+    const subNavHTML = `
+        <div class="surge-nav-toggle">
+            <button data-action="tab-weather" class="surge-nav-btn ${activePredictionTab === 'weather' ? 'active' : ''}">
+                🔥 Heat Hazard
+            </button>
+            <button data-action="tab-surge" class="surge-nav-btn ${activePredictionTab === 'surge' ? 'active' : ''}">
+                🏥 Patient Surge
+            </button>
+        </div>
     `;
 
     /* Date tabs */
@@ -1413,41 +1612,361 @@ function renderPredictionWidget() {
         return `<button data-action="date" data-date="${dateStr}" style="
             flex:1;padding:6px 0;font-size:11px;font-family:inherit;font-weight:700;
             border-radius:6px;border:none;cursor:pointer;transition:all 0.15s ease;
-            background:${isActive ? '#059669' : 'transparent'};
+            background:${isActive ? (activePredictionTab === 'surge' ? '#0284c7' : '#059669') : 'transparent'};
             color:${isActive ? '#fff' : '#64748b'};
-            ${isActive ? 'box-shadow:0 1px 4px rgba(5,150,105,0.25);' : ''}
+            ${isActive ? 'box-shadow:0 1px 4px rgba(15,23,42,0.15);' : ''}
         ">${dayLabel}</button>`;
     }).join('');
 
-    /* Hourly timeline */
-    const hourlyEntries  = rec.hourly_status ? Object.entries(rec.hourly_status) : [];
-    const hourlyPillsHTML = hourlyEntries.map(([hour, status]) => {
-        const pillBg    = status === 'UNSAFE' ? '#dc2626' : status === 'CAUTION' ? '#f59e0b' : '#10b981';
-        return `<div title="${hour}:00 — ${status}" style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-            <span style="font-size:8.5px;color:#94a3b8;font-weight:600;">${hour}h</span>
-            <div style="width:15px;height:15px;border-radius:3px;background:${pillBg};
-                display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;">
-                ${status[0]}
-            </div>
-        </div>`;
-    }).join('');
+    let tabBodyHTML = '';
 
-    /* Safe windows */
-    const goOutWindows = (rec.recommended_go_out_windows || []).map(w =>
-        `<span style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:700;">🟢 ${w}</span>`
-    ).join(' ');
+    /* ─────────────────────────────────────────────────────────────
+       TAB 1: WEATHER & HEAT HAZARD
+    ───────────────────────────────────────────────────────────── */
+    if (activePredictionTab === 'weather') {
+        const hourlyEntries   = rec.hourly_status ? Object.entries(rec.hourly_status) : [];
+        const hourlyPillsHTML = hourlyEntries.map(([hour, status]) => {
+            const pillBg = status === 'UNSAFE' ? '#dc2626' : status === 'CAUTION' ? '#f59e0b' : '#10b981';
+            return `<div title="${hour}:00 — ${status}" style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <span style="font-size:8.5px;color:#94a3b8;font-weight:600;">${hour}h</span>
+                <div style="width:15px;height:15px;border-radius:3px;background:${pillBg};
+                    display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;">
+                    ${status[0]}
+                </div>
+            </div>`;
+        }).join('');
+
+        const goOutWindows = (rec.recommended_go_out_windows || []).map(w =>
+            `<span style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:700;">🟢 ${w}</span>`
+        ).join(' ');
+
+        tabBodyHTML = `
+            <!-- Date Tabs -->
+            <div style="display:flex;gap:3px;background:#f1f5f9;padding:3px;border-radius:8px;margin-bottom:12px;border:1px solid #e2e8f0;">
+                ${tabsHTML}
+            </div>
+
+            <!-- Stats Grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;">
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Heatwave Risk</div>
+                    <div style="font-size:20px;font-weight:800;color:${isHeatwave ? '#dc2626' : '#059669'};margin-top:1px;">${probPct}%</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Unsafe Hours</div>
+                    <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:4px;">${rec.expected_unsafe_duration || '0 hrs'}</div>
+                </div>
+            </div>
+
+            <!-- Danger Window -->
+            <div style="margin-bottom:10px;">
+                <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:3px;text-transform:uppercase;">Peak Danger Window:</div>
+                <div style="color:#991b1b;font-weight:700;background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #dc2626;padding:5px 8px;border-radius:5px;font-size:12px;">
+                    ⚠️ ${rec.danger_window || 'None (Safe Conditions)'}
+                </div>
+            </div>
+
+            <!-- Safe Windows -->
+            <div style="margin-bottom:12px;">
+                <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:4px;text-transform:uppercase;">Best Outdoor Windows:</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">${goOutWindows}</div>
+            </div>
+
+            <!-- Hourly Timeline -->
+            <div>
+                <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:5px;text-transform:uppercase;">Hourly Safety (08:00–20:00):</div>
+                <div style="display:flex;justify-content:space-between;background:#f8fafc;padding:8px 10px;border-radius:8px;border:1px solid #e2e8f0;flex-wrap:wrap;gap:4px;">
+                    ${hourlyPillsHTML}
+                </div>
+            </div>
+        `;
+    } 
+    /* ─────────────────────────────────────────────────────────────
+       TAB 2: HOSPITAL PATIENT SURGE
+    ───────────────────────────────────────────────────────────── */
+    else {
+        const facData = surge && surge.facility_projections ? surge.facility_projections[activeSurgeFacility] : null;
+        const facMeta = hospitalSurgeData && hospitalSurgeData.facilities ? hospitalSurgeData.facilities[activeSurgeFacility] : null;
+
+        if (!facData || !facMeta) {
+            tabBodyHTML = `<div style="padding:15px;text-align:center;color:#64748b;font-size:12px;">Surge predictions loading...</div>`;
+        } else {
+            const sb = facData.syndromic_breakdown;
+            const res = facData.resource_readiness_requirements;
+            const isRedAlert = (surge.alert_level || '').includes('Red');
+            const isOrangeAlert = (surge.alert_level || '').includes('Orange');
+            const bannerBg = isRedAlert ? '#fef2f2' : (isOrangeAlert ? '#fffbeb' : '#f0fdf4');
+            const bannerBorder = isRedAlert ? '#fecaca' : (isOrangeAlert ? '#fde68a' : '#bbf7d0');
+            const bannerColor = isRedAlert ? '#991b1b' : (isOrangeAlert ? '#92400e' : '#166534');
+
+            /* Academic references HTML with official document links & DOIs */
+            const referencesHTML = (hospitalSurgeData.metadata.academic_references || []).map(ref => `
+                <div style="border-left:3px solid #0284c7;padding:6px 9px;margin-bottom:8px;background:#f8fafc;border-radius:0 6px 6px 0;border:1px solid #e2e8f0;border-left:3px solid #0284c7;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+                        <div style="font-size:10px;font-weight:800;color:#0f172a;">${ref.authority}</div>
+                        ${ref.url ? `<a href="${ref.url}" target="_blank" rel="noopener noreferrer" style="font-size:9px;color:#0284c7;font-weight:700;text-decoration:none;white-space:nowrap;background:#e0f2fe;padding:2px 6px;border-radius:4px;border:1px solid #bae6fd;">↗ ${ref.url_label || 'Official Doc'}</a>` : ''}
+                    </div>
+                    <div style="font-size:9.5px;color:#334155;font-style:italic;margin-top:2px;">${ref.title}</div>
+                    <div style="font-size:9px;color:#64748b;margin-top:3px;line-height:1.35;">${ref.summary}</div>
+                    ${ref.apa ? `
+                    <div style="margin-top:5px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:8.5px;color:#94a3b8;font-family:monospace;">APA Citation</span>
+                        <button type="button" onclick="copyCitationText('${ref.apa.replace(/'/g, "\\'")}', this)" style="background:#ffffff;border:1px solid #cbd5e1;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;cursor:pointer;color:#334155;transition:all 0.15s ease;">📋 Copy</button>
+                    </div>` : ''}
+                </div>
+            `).join('') + `
+                <button type="button" onclick="openCitationsModal('clinical_epidemiology')" style="width:100%;margin-top:4px;background:#f0f9ff;border:1.5px dashed #0284c7;border-radius:6px;padding:7px 10px;font-size:10.5px;font-weight:700;color:#0284c7;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                    <span>📚 Open Full Scientific Bibliography & DOIs</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </button>
+            `;
+
+            // Build facility select options and quick switch pills
+            const studyAreaClinics = ['soa_student_health_centre', 'jagamara_uphc', 'astang_ayurveda'];
+            const referralHubs = ['sum_hospital'];
+            const allSurgeFacilityKeys = ['soa_student_health_centre', 'jagamara_uphc', 'astang_ayurveda', 'sum_hospital'];
+
+            const facilityPillsHTML = allSurgeFacilityKeys.map(fKey => {
+                const f = hospitalSurgeData.facilities[fKey];
+                if (!f) return '';
+                const isActive = fKey === activeSurgeFacility;
+                let shortLabel = '🏥 Clinic';
+                if (fKey === 'soa_student_health_centre') shortLabel = '🩺 Student Clinic';
+                else if (fKey === 'jagamara_uphc') shortLabel = '🏥 Jagamara UPHC';
+                else if (fKey === 'astang_ayurveda') shortLabel = '🌿 Astang Ayurveda';
+                else if (fKey === 'sum_hospital') shortLabel = '🏥 IMS & SUM';
+
+                return `<button data-action="facility" data-facility="${fKey}" class="facility-pill-btn ${isActive ? 'active' : ''}">
+                    ${shortLabel}
+                </button>`;
+            }).join('');
+
+            const allFacilitiesOptionsHTML = `
+                <optgroup label="Local Study Area (3 km² Catchment)">
+                    ${studyAreaClinics.map(fKey => {
+                        const f = hospitalSurgeData.facilities[fKey];
+                        if (!f) return '';
+                        return `<option value="${fKey}" ${fKey === activeSurgeFacility ? 'selected' : ''}>${f.name} (${f.dist_from_iter_km === 0 ? 'Inside Campus' : f.dist_from_iter_km + ' km'})</option>`;
+                    }).join('')}
+                </optgroup>
+                <optgroup label="Quaternary Referral Hub (IMS & SUM)">
+                    ${referralHubs.map(fKey => {
+                        const f = hospitalSurgeData.facilities[fKey];
+                        if (!f) return '';
+                        return `<option value="${fKey}" ${fKey === activeSurgeFacility ? 'selected' : ''}>${f.name} (1,750 beds • ${f.drive_time_min} min Ambulance)</option>`;
+                    }).join('')}
+                </optgroup>
+            `;
+
+            let facilityBannerHTML = '';
+            if (activeSurgeFacility === 'soa_student_health_centre') {
+                facilityBannerHTML = `
+                    <div class="transit-info-pill" style="border-left:3px solid #0284c7;flex-direction:column;align-items:flex-start;gap:4px;">
+                        <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+                            <span style="font-size:10.5px;font-weight:700;color:#0369a1;">🎓 SOA ITER Student Health Centre (7Q2X+6X)</span>
+                            <a href="javascript:void(0)" onclick="focusFacilityOnMap('soa_student_health_centre', true)" style="color:#0284c7;font-weight:700;text-decoration:none;font-size:10px;">✈️ Pan Map</a>
+                        </div>
+                        <div style="font-size:9.5px;color:#334155;line-height:1.35;">
+                            Available <strong>free of cost exclusively for ITER students & faculty</strong>. Serious emergencies are transferred via on-campus ambulance to <strong>IMS & SUM Hospital</strong>.
+                        </div>
+                    </div>
+                `;
+            } else if (activeSurgeFacility === 'sum_hospital') {
+                facilityBannerHTML = `
+                    <div class="transit-info-pill" style="border-left:3px solid #dc2626;flex-direction:column;align-items:flex-start;gap:4px;">
+                        <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+                            <span style="font-size:10.5px;font-weight:700;color:#991b1b;">🏥 IMS & SUM Hospital (7QM9+7W)</span>
+                            <a href="javascript:void(0)" onclick="focusFacilityOnMap('sum_hospital', true)" style="color:#0284c7;font-weight:700;text-decoration:none;font-size:10px;">✈️ Pan Map</a>
+                        </div>
+                        <div style="font-size:9.5px;color:#334155;line-height:1.35;">
+                            🚑 <strong>~11 min ambulance drive</strong> (4.8 km). Receives severe ITER student heatstroke cases. <em>Modeled with wider referral catchment variance as an emergency quaternary hospital.</em>
+                        </div>
+                    </div>
+                `;
+            } else if (activeSurgeFacility === 'jagamara_uphc') {
+                facilityBannerHTML = `
+                    <div class="transit-info-pill" style="border-left:3px solid #16a34a;flex-direction:column;align-items:flex-start;gap:4px;">
+                        <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+                            <span style="font-size:10.5px;font-weight:700;color:#15803d;">🏥 Jagamara UPHC (6RX2+99)</span>
+                            <a href="javascript:void(0)" onclick="focusFacilityOnMap('jagamara_uphc', true)" style="color:#0284c7;font-weight:700;text-decoration:none;font-size:10px;">✈️ Pan Map</a>
+                        </div>
+                        <div style="font-size:9.5px;color:#334155;line-height:1.35;">
+                            Govt Urban Primary Health Centre on Jagamara Main Rd (0.5 km / 2 min). Primary walk-in triage and ORS corner for the 3 km² neighborhood catchment.
+                        </div>
+                    </div>
+                `;
+            } else { // astang_ayurveda
+                facilityBannerHTML = `
+                    <div class="transit-info-pill" style="border-left:3px solid #d97706;flex-direction:column;align-items:flex-start;gap:4px;">
+                        <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+                            <span style="font-size:10.5px;font-weight:700;color:#b45309;">🌿 Astang Ayurveda Hospital (6RV2+RM)</span>
+                            <a href="javascript:void(0)" onclick="focusFacilityOnMap('astang_ayurveda', true)" style="color:#0284c7;font-weight:700;text-decoration:none;font-size:10px;">✈️ Pan Map</a>
+                        </div>
+                        <div style="font-size:9.5px;color:#334155;line-height:1.35;">
+                            Ayurvedic hospital in Gandamunda (0.8 km / 3 min). Handles outpatient herbal rehydration, heat fatigue recovery, and community cooling therapy within the 3 km² zone.
+                        </div>
+                    </div>
+                `;
+            }
+
+            tabBodyHTML = `
+                <!-- Facility Switcher -->
+                <div style="margin-bottom:6px;">
+                    <div style="font-size:9.5px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;letter-spacing:0.04em;">
+                        Healthcare Facility (Study Area & Referral Hub):
+                    </div>
+                    <select class="facility-select-dropdown" onchange="window.switchSurgeFacility(this.value)">
+                        ${allFacilitiesOptionsHTML}
+                    </select>
+                    <div class="facility-switch-bar" style="margin-bottom:6px;">
+                        ${facilityPillsHTML}
+                    </div>
+                </div>
+
+                <!-- Operational / Transit Context Banner -->
+                ${facilityBannerHTML}
+
+                <!-- Population Catchment Boundary Note -->
+                <div style="font-size:9px;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e1;padding:5px 8px;border-radius:6px;margin-bottom:8px;line-height:1.35;">
+                    ℹ️ <em>Catchment Scope: AIIMS BBSR & AMRI are excluded because their pan-India/state-level draw exceeds our local 3 km² population raster.</em>
+                </div>
+
+                <!-- Date Tabs -->
+                <div style="display:flex;gap:3px;background:#f1f5f9;padding:3px;border-radius:8px;margin-bottom:10px;border:1px solid #e2e8f0;">
+                    ${tabsHTML}
+                </div>
+
+                <!-- Alert Level Banner -->
+                <div class="surge-alert-banner" style="background:${bannerBg};border:1px solid ${bannerBorder};color:${bannerColor};">
+                    <div>
+                        <span style="font-size:13px;">${isRedAlert ? '🔴' : isOrangeAlert ? '🟠' : '🟡'}</span>
+                        <span style="font-weight:800;margin-left:4px;">${surge.alert_level}</span>
+                    </div>
+                    <span style="background:${surge.alert_color};color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;">
+                        +${surge.surge_percent}% Surge
+                    </span>
+                </div>
+
+                <!-- Clinical Advisory Notice -->
+                <div style="font-size:10.5px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;padding:7px 9px;border-radius:6px;margin-bottom:10px;line-height:1.4;">
+                    <span style="font-weight:700;color:#0f172a;">Guideline Protocol:</span> ${surge.clinical_advisory}
+                </div>
+
+                <!-- Metrics Grid: Emergency & OPD -->
+                <div class="surge-metric-grid">
+                    <div class="surge-stat-card">
+                        <div class="surge-stat-label">🚨 Projected Emergency</div>
+                        <div class="surge-stat-val" style="color:#b91c1c;">${facData.projected_emergency} <span style="font-size:11px;color:#64748b;font-weight:500;">/day</span></div>
+                        <div class="surge-stat-sub" style="color:#dc2626;font-weight:700;">+${facData.excess_emergency_patients} excess (base: ${facData.baseline_emergency})</div>
+                    </div>
+                    <div class="surge-stat-card">
+                        <div class="surge-stat-label">🩺 Total OPD Load</div>
+                        <div class="surge-stat-val" style="color:#0284c7;">${facData.projected_opd.toLocaleString()} <span style="font-size:11px;color:#64748b;font-weight:500;">/day</span></div>
+                        <div class="surge-stat-sub">+${facData.excess_opd_patients} excess (base: ${facData.baseline_opd.toLocaleString()})</div>
+                    </div>
+                </div>
+
+                <!-- Syndromic Breakdown (Excess Cases) -->
+                <div style="margin-top:8px;">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:5px;letter-spacing:0.04em;">
+                        Syndromic Influx Distribution (ICD-10):
+                    </div>
+                    
+                    <div class="syndromic-card">
+                        <div>
+                            <div class="syndromic-title">Direct Heat Illness (Sunstroke, T67)</div>
+                            <div style="font-size:9.5px;color:#94a3b8;">Exhaustion, syncope, heat cramps</div>
+                        </div>
+                        <span class="syndromic-badge" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;">
+                            +${sb.direct_heat_illness.projected_excess_cases}
+                        </span>
+                    </div>
+
+                    <div class="syndromic-card">
+                        <div>
+                            <div class="syndromic-title">Cardiovascular / Stroke (I20-I64)</div>
+                            <div style="font-size:9.5px;color:#94a3b8;">Ischemic overload, arrhythmias</div>
+                        </div>
+                        <span class="syndromic-badge" style="background:#ffedd5;color:#c2410c;border:1px solid #fdba74;">
+                            +${sb.cardiovascular_cerebrovascular.projected_excess_cases}
+                        </span>
+                    </div>
+
+                    <div class="syndromic-card">
+                        <div>
+                            <div class="syndromic-title">Renal & Dehydration (N17 / E86)</div>
+                            <div style="font-size:9.5px;color:#94a3b8;">Acute Kidney Injury, electrolyte deficit</div>
+                        </div>
+                        <span class="syndromic-badge" style="background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;">
+                            +${sb.renal_metabolic.projected_excess_cases}
+                        </span>
+                    </div>
+
+                    <div class="syndromic-card">
+                        <div>
+                            <div class="syndromic-title">Respiratory Decompensation (J44-45)</div>
+                            <div style="font-size:9.5px;color:#94a3b8;">Ozone/PM & thermal hyperventilation</div>
+                        </div>
+                        <span class="syndromic-badge" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;">
+                            +${sb.respiratory_other.projected_excess_cases}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- AIIMS / WHO Readiness Deployment Box -->
+                <div class="resource-box">
+                    <div class="resource-box-title">
+                        <span>🛡️</span> AIIMS & WHO Facility Readiness Protocol
+                    </div>
+                    <div class="resource-item">
+                        <span>Dedicated Heat Stroke Units (HSU):</span>
+                        <strong style="color:#15803d;">${res.dedicated_hsu_beds} Beds</strong>
+                    </div>
+                    <div class="resource-item">
+                        <span>Emergency IV Fluid (0.9% NS / Ringer's):</span>
+                        <strong style="color:#15803d;">${res.emergency_iv_fluid_litres} Litres</strong>
+                    </div>
+                    <div class="resource-item">
+                        <span>Active Evaporative Cooling Units:</span>
+                        <strong style="color:#15803d;">${res.rapid_cooling_stations} Units</strong>
+                    </div>
+                </div>
+
+                <!-- Scientific Evidence & Guidelines Accordion -->
+                <div style="margin-top:6px;">
+                    <button data-action="toggle-citations" style="
+                        width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;
+                        padding:6px 10px;font-size:10.5px;font-weight:700;color:#0284c7;
+                        display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+                    ">
+                        <span>📚 Evidence Base (WHO, AIIMS, IMD, Lancet)</span>
+                        <span>${showSurgeCitations ? '▲' : '▼'}</span>
+                    </button>
+                    ${showSurgeCitations ? `
+                        <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 6px 6px;padding:8px;max-height:160px;overflow-y:auto;">
+                            ${referencesHTML}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+    }
+
+    /* Outer Card Assembly */
+    const headerTitle = activePredictionTab === 'surge' ? 'Patient Surge Prediction' : 'Heatwave Forecast';
+    const headerBadge = activePredictionTab === 'surge' && surge
+        ? `<span style="background:${surge.alert_color}18;color:${surge.alert_color};border:1px solid ${surge.alert_color}40;font-weight:800;font-size:10.5px;padding:2px 8px;border-radius:999px;">+${surge.surge_percent}% Surge</span>`
+        : `<span style="background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};font-weight:800;font-size:10.5px;padding:2px 8px;border-radius:999px;">${summary.prediction || 'NORMAL'}</span>`;
 
     card.innerHTML = `
         <!-- Header -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
             <div style="display:flex;align-items:center;gap:6px;">
-                <span style="font-size:15px;">🔥</span>
-                <span style="font-size:12px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:0.04em;">Heatwave Forecast</span>
+                <span style="font-size:15px;">${activePredictionTab === 'surge' ? '🏥' : '🔥'}</span>
+                <span style="font-size:12px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:0.04em;">${headerTitle}</span>
             </div>
             <div style="display:flex;align-items:center;gap:6px;">
-                <span style="background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};font-weight:800;font-size:10.5px;padding:2px 8px;border-radius:999px;">
-                    ${summary.prediction || 'NORMAL'}
-                </span>
+                ${headerBadge}
                 <button data-action="collapse" title="Minimise" style="
                     background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:6px;
                     width:26px;height:26px;display:flex;align-items:center;justify-content:center;
@@ -1457,44 +1976,11 @@ function renderPredictionWidget() {
             </div>
         </div>
 
-        <!-- Date Tabs -->
-        <div style="display:flex;gap:3px;background:#f1f5f9;padding:3px;border-radius:8px;margin-bottom:12px;border:1px solid #e2e8f0;">
-            ${tabsHTML}
-        </div>
+        <!-- Sub-navigation: Heat Hazard vs Patient Surge -->
+        ${subNavHTML}
 
-        <!-- Stats Grid -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;">
-            <div>
-                <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Heatwave Risk</div>
-                <div style="font-size:20px;font-weight:800;color:${isHeatwave ? '#dc2626' : '#059669'};margin-top:1px;">${probPct}%</div>
-            </div>
-            <div>
-                <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Unsafe Hours</div>
-                <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:4px;">${rec.expected_unsafe_duration || '0 hrs'}</div>
-            </div>
-        </div>
-
-        <!-- Danger Window -->
-        <div style="margin-bottom:10px;">
-            <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:3px;text-transform:uppercase;">Peak Danger Window:</div>
-            <div style="color:#991b1b;font-weight:700;background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #dc2626;padding:5px 8px;border-radius:5px;font-size:12px;">
-                ⚠️ ${rec.danger_window || 'None (Safe Conditions)'}
-            </div>
-        </div>
-
-        <!-- Safe Windows -->
-        <div style="margin-bottom:12px;">
-            <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:4px;text-transform:uppercase;">Best Outdoor Windows:</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">${goOutWindows}</div>
-        </div>
-
-        <!-- Hourly Timeline -->
-        <div>
-            <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:5px;text-transform:uppercase;">Hourly Safety (08:00–20:00):</div>
-            <div style="display:flex;justify-content:space-between;background:#f8fafc;padding:8px 10px;border-radius:8px;border:1px solid #e2e8f0;flex-wrap:wrap;gap:4px;">
-                ${hourlyPillsHTML}
-            </div>
-        </div>
+        <!-- Tab Body Content -->
+        ${tabBodyHTML}
     `;
 
     /* ── Event delegation: one listener handles ALL buttons ── */
@@ -1505,13 +1991,258 @@ function renderPredictionWidget() {
         if (action === 'collapse') {
             isPredictionWidgetCollapsed = true;
             renderPredictionWidget();
+        } else if (action === 'expand') {
+            isPredictionWidgetCollapsed = false;
+            renderPredictionWidget();
+        } else if (action === 'tab-weather') {
+            activePredictionTab = 'weather';
+            renderPredictionWidget();
+        } else if (action === 'tab-surge') {
+            activePredictionTab = 'surge';
+            renderPredictionWidget();
         } else if (action === 'date') {
             activePredictionDate = btn.dataset.date;
             renderPredictionWidget();
-        } else if (action === 'expand') {
-            isPredictionWidgetCollapsed = false;
+        } else if (action === 'facility') {
+            activeSurgeFacility = btn.dataset.facility;
+            renderPredictionWidget();
+            focusFacilityOnMap(activeSurgeFacility, true);
+        } else if (action === 'toggle-citations') {
+            showSurgeCitations = !showSurgeCitations;
             renderPredictionWidget();
         }
     };
     card.addEventListener('click', card._delegatedListener);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   SCIENTIFIC CITATIONS & METHODOLOGY MODULE
+   ───────────────────────────────────────────────────────────── */
+let scientificCitationsData = null;
+let activeCitationCategory = 'all';
+let citationSearchQuery = '';
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadScientificCitations();
+});
+
+function loadScientificCitations() {
+    fetch('/data/scientific_citations.json')
+        .then(res => res.json())
+        .then(data => {
+            scientificCitationsData = data;
+            initCitationsUI();
+        })
+        .catch(err => console.error("Could not load scientific citations:", err));
+}
+
+function initCitationsUI() {
+    const citationsBtn = document.getElementById('citationsBtn');
+    const modal = document.getElementById('citationsModal');
+    const closeBtn = document.getElementById('closeCitationsModalBtn');
+    const footerCloseBtn = document.getElementById('closeCitationsFooterBtn');
+    const searchInput = document.getElementById('citationsSearchInput');
+
+    if (citationsBtn) {
+        citationsBtn.addEventListener('click', () => openCitationsModal('all'));
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => closeCitationsModal());
+    }
+    if (footerCloseBtn) {
+        footerCloseBtn.addEventListener('click', () => closeCitationsModal());
+    }
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeCitationsModal();
+        });
+    }
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            citationSearchQuery = e.target.value.toLowerCase().trim();
+            renderCitationsList();
+        });
+    }
+
+    renderCitationCategoryPills();
+    renderCitationsList();
+}
+
+function openCitationsModal(categoryOrId = 'all') {
+    const modal = document.getElementById('citationsModal');
+    if (!modal) return;
+
+    if (scientificCitationsData && scientificCitationsData.citations) {
+        // Check if categoryOrId matches a citation id directly
+        const matchedItem = scientificCitationsData.citations.find(c => c.id === categoryOrId);
+        if (matchedItem) {
+            activeCitationCategory = matchedItem.category;
+            citationSearchQuery = matchedItem.title.toLowerCase().slice(0, 20);
+            const searchInput = document.getElementById('citationsSearchInput');
+            if (searchInput) searchInput.value = matchedItem.title.slice(0, 25);
+        } else {
+            activeCitationCategory = categoryOrId;
+            citationSearchQuery = '';
+            const searchInput = document.getElementById('citationsSearchInput');
+            if (searchInput) searchInput.value = '';
+        }
+    }
+
+    renderCitationCategoryPills();
+    renderCitationsList();
+    modal.classList.add('open');
+
+    const listEl = document.getElementById('citationsListContainer');
+    if (listEl) listEl.scrollTop = 0;
+}
+window.openCitationsModal = openCitationsModal;
+
+function closeCitationsModal() {
+    const modal = document.getElementById('citationsModal');
+    if (modal) modal.classList.remove('open');
+}
+window.closeCitationsModal = closeCitationsModal;
+
+function renderCitationCategoryPills() {
+    const pillsContainer = document.getElementById('citationsCategoryPills');
+    if (!pillsContainer || !scientificCitationsData || !scientificCitationsData.metadata) return;
+
+    const cats = scientificCitationsData.metadata.categories || [];
+    pillsContainer.innerHTML = cats.map(cat => {
+        const isActive = cat.key === activeCitationCategory;
+        const count = cat.key === 'all' 
+            ? scientificCitationsData.citations.length 
+            : scientificCitationsData.citations.filter(c => c.category === cat.key).length;
+
+        return `<button type="button" class="citations-category-pill ${isActive ? 'active' : ''}" onclick="filterCitationCategory('${cat.key}')">
+            <span>${cat.icon}</span>
+            <span>${cat.label}</span>
+            <span class="pill-count-badge">${count}</span>
+        </button>`;
+    }).join('');
+}
+
+function filterCitationCategory(catKey) {
+    activeCitationCategory = catKey;
+    renderCitationCategoryPills();
+    renderCitationsList();
+}
+window.filterCitationCategory = filterCitationCategory;
+
+function renderCitationsList() {
+    const container = document.getElementById('citationsListContainer');
+    const countLabel = document.getElementById('citationsCountLabel');
+    if (!container || !scientificCitationsData) return;
+
+    let items = scientificCitationsData.citations || [];
+
+    if (activeCitationCategory !== 'all') {
+        items = items.filter(c => c.category === activeCitationCategory);
+    }
+
+    if (citationSearchQuery) {
+        items = items.filter(c => 
+            c.title.toLowerCase().includes(citationSearchQuery) ||
+            c.authors.toLowerCase().includes(citationSearchQuery) ||
+            c.venue.toLowerCase().includes(citationSearchQuery) ||
+            (c.formula_mapping && c.formula_mapping.toLowerCase().includes(citationSearchQuery)) ||
+            (c.implementation_role && c.implementation_role.toLowerCase().includes(citationSearchQuery))
+        );
+    }
+
+    if (countLabel) countLabel.textContent = items.length;
+
+    if (!items.length) {
+        container.innerHTML = `
+            <div style="padding:40px 20px;text-align:center;color:#64748b;">
+                <div style="font-size:32px;margin-bottom:8px;">🔍</div>
+                <div style="font-weight:700;font-size:14px;color:#0f172a;">No citations matched your search.</div>
+                <div style="font-size:12px;margin-top:4px;">Try searching for terms like "Landsat", "WHO", "NDVI", "BSI", or "Surge".</div>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = items.map(c => `
+        <div class="citation-card" id="cite-${c.id}">
+            <div class="citation-card-top">
+                <span class="citation-badge">
+                    <span>${c.category_icon}</span>
+                    <span>${c.category_label}</span>
+                </span>
+                <span class="citation-year-badge">${c.year}</span>
+            </div>
+
+            <h3 class="citation-title">${c.title}</h3>
+
+            <div class="citation-authors">
+                <strong>Authors / Agency:</strong> ${c.authors}
+            </div>
+
+            <div class="citation-venue">
+                <em>${c.venue}</em>
+            </div>
+
+            <div class="citation-role-box">
+                <div class="citation-role-title">⚙️ ShadeRoute Analytical Implementation:</div>
+                <div class="citation-role-desc">${c.implementation_role}</div>
+                ${c.formula_mapping ? `<div class="citation-formula-code"><code>${c.formula_mapping}</code></div>` : ''}
+            </div>
+
+            <div class="citation-card-actions">
+                ${c.doi_or_url ? `
+                <a href="${c.doi_or_url}" target="_blank" rel="noopener noreferrer" class="citation-link-btn" title="Open persistent DOI or official documentation in new tab">
+                    <span>🔗 ${c.url_type || 'Official Documentation'}</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>` : ''}
+
+                <button type="button" class="citation-copy-btn" onclick="copyCitationText('${c.apa_citation.replace(/'/g, "\\'")}', this)" title="Copy APA formatted citation to clipboard">
+                    <span>📋</span>
+                    <span>Copy Citation (APA)</span>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function copyCitationText(text, btnEl) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (btnEl) {
+                const originalHTML = btnEl.innerHTML;
+                btnEl.innerHTML = '<span>✓ Copied!</span>';
+                btnEl.style.background = '#ecfdf5';
+                btnEl.style.borderColor = '#10b981';
+                btnEl.style.color = '#065f46';
+                setTimeout(() => {
+                    btnEl.innerHTML = originalHTML;
+                    btnEl.style.background = '';
+                    btnEl.style.borderColor = '';
+                    btnEl.style.color = '';
+                }, 2000);
+            }
+            showMessage('✓ APA Citation copied to clipboard!');
+        }).catch(() => {
+            fallbackCopy(text);
+        });
+    } else {
+        fallbackCopy(text);
+    }
+}
+window.copyCitationText = copyCitationText;
+
+function fallbackCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        showMessage('✓ APA Citation copied to clipboard!');
+    } catch (e) {
+        showMessage('Could not copy to clipboard.');
+    }
+    document.body.removeChild(textarea);
+}

@@ -60,6 +60,10 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               <span>How it Works</span>
             </button>
+            <button id="citationsBtn" class="topbar-action-btn" type="button" title="Scientific Documentation, Academic Citations & Source Credits">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span>Scientific Citations</span>
+            </button>
             <button id="recenterBtn" class="topbar-action-btn" type="button" title="Center view on campus">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
               <span>Center Campus</span>
@@ -392,6 +396,9 @@
                 <span class="glossary-term" style="color:#e11d48;">Pedestrian Exposure</span>
                 <span class="glossary-plain">LST × (1 - NDVI)</span>
                 <div class="glossary-def">Walking heat stress combining hot unshaded ground with lack of tree canopy. Rated High, Medium, or Low.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('pedestrian_harlan')">
+                  📚 Ref: Harlan et al. (2006) · Rouse (1974)
+                </button>
               </div>
 
               <div class="glossary-card">
@@ -399,6 +406,9 @@
                 <span class="glossary-term" style="color:#dc2626;">Ground Heat</span>
                 <span class="glossary-plain">LST (technical name)</span>
                 <div class="glossary-def">How hot the actual ground surface is in °C — measured via high-resolution thermal infrared sensors.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('landsat9_tirs2')">
+                  🛰️ Ref: USGS / NASA Landsat 9 TIRS-2 (2022)
+                </button>
               </div>
 
               <div class="glossary-card">
@@ -406,6 +416,9 @@
                 <span class="glossary-term" style="color:#059669;">Green Canopy Score</span>
                 <span class="glossary-plain">NDVI (technical name)</span>
                 <div class="glossary-def">How much healthy, cooling plant cover exists. High = thick shade canopy. Low = bare exposed ground.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('ndvi_rouse')">
+                  🌿 Ref: Rouse et al. (1974) · NASA GSFC
+                </button>
               </div>
 
               <div class="glossary-card">
@@ -413,6 +426,9 @@
                 <span class="glossary-term" style="color:#475569;">Concrete & Rooftops</span>
                 <span class="glossary-plain">NDBI (technical name)</span>
                 <div class="glossary-def">Buildings, roads, and concrete surfaces that absorb heat during the day and release it at night.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('ndbi_zha')">
+                  🏗️ Ref: Zha, Gao & Ni (2003) · IJRS
+                </button>
               </div>
 
               <div class="glossary-card">
@@ -420,6 +436,9 @@
                 <span class="glossary-term" style="color:#d97706;">Bare Soil Exposure</span>
                 <span class="glossary-plain">BSI (technical name)</span>
                 <div class="glossary-def">Unplanted dry soil patches baking in direct sunlight — the hottest zones on campus.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('bsi_rikimaru')">
+                  🌱 Ref: Rikimaru, Roy & Miyatake (2002)
+                </button>
               </div>
 
               <div class="glossary-card">
@@ -427,6 +446,9 @@
                 <span class="glossary-term" style="color:#0284c7;">Moisture Level</span>
                 <span class="glossary-plain">NDWI (technical name)</span>
                 <div class="glossary-def">How much water is present in plants and soil. Moist areas stay cooler.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('ndwi_gao')">
+                  💧 Ref: Gao (1996) · Remote Sens. Environ.
+                </button>
               </div>
 
               <div class="glossary-card">
@@ -434,6 +456,9 @@
                 <span class="glossary-term" style="color:#15803d;">Tree Cover %</span>
                 <span class="glossary-plain">Veg% (technical name)</span>
                 <div class="glossary-def">The percentage of that ground patch that's actually covered by leaves and shade.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('ndvi_rouse')">
+                  🌳 Ref: Landsat Fractional Vegetation Cover
+                </button>
               </div>
 
             </div>
@@ -730,7 +755,7 @@
             <div style="margin-bottom: 14px;">
               <span class="modal-eyebrow" style="color: #0284c7;">🧮 Mathematical Modeling</span>
               <h3 style="font-size: 17px; font-weight: 800; color: var(--text); letter-spacing: -0.02em; margin: 0 0 4px;">Scientific Models & Score Formulas</h3>
-              <p style="font-size: 12px; color: var(--muted); margin: 0; line-height: 1.45;">Exact analytical formulas and criteria powering every score and index across the map:</p>
+              <p style="font-size: 12px; color: var(--muted); margin: 0; line-height: 1.45;">Exact analytical formulas, peer-reviewed literature, and institutional criteria powering every score across ShadeRoute:</p>
             </div>
 
             <!-- Formula 1: Pedestrian Exposure -->
@@ -741,6 +766,11 @@
               </div>
               <div class="heat-formula-desc">
                 Physical outdoor walking heat stress rated into <strong>High</strong>, <strong>Medium</strong>, and <strong>Low</strong> terciles. High ground surface temperature combined with a lack of tree canopy shade yields the highest exposure.
+              </div>
+              <div class="formula-cite-row">
+                <span class="formula-cite-label">Primary Citations:</span>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('pedestrian_harlan')">📖 Harlan et al. (2006) [DOI]</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('ndvi_rouse')">🛰️ Rouse et al. / NASA (1974)</button>
               </div>
             </div>
 
@@ -753,6 +783,11 @@
               <div class="heat-formula-desc">
                 Scales the base IMD heat index by up to +30% based on local vulnerability. Dense, unshaded sectors with higher vulnerable populations receive the greatest risk amplification.
               </div>
+              <div class="formula-cite-row">
+                <span class="formula-cite-label">Primary Citations:</span>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('rothfusz_noaa')">🌡️ Rothfusz / NOAA (1990)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('imd_heatwave_standards')">🇮🇳 IMD Heat SOP (2023)</button>
+              </div>
             </div>
 
             <!-- Formula 3: Vulnerability Index -->
@@ -762,7 +797,11 @@
                 <span class="heat-formula-code">45.5% Pop + 36.4% Fac + 18.1% Veg</span>
               </div>
               <div class="heat-formula-desc">
-                Composite vulnerability combining age-vulnerable population density (children & seniors), proximity to schools and hospitals, and vegetative canopy deficit.
+                Composite vulnerability combining age-vulnerable population density (children & seniors), proximity to schools and hospitals, and vegetative canopy deficit across the 3 km² study zone.
+              </div>
+              <div class="formula-cite-row">
+                <span class="formula-cite-label">Primary Citation:</span>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('vulnerability_wilhelmi')">📖 Wilhelmi & Hayden (2010) [DOI]</button>
               </div>
             </div>
 
@@ -775,6 +814,11 @@
               <div class="heat-formula-desc">
                 Standard meteorological apparent heat index calculating human physiological heat strain from ambient air temperature and relative humidity.
               </div>
+              <div class="formula-cite-row">
+                <span class="formula-cite-label">Primary Citations:</span>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('rothfusz_noaa')">🌡️ Rothfusz (1990) NWS SR 90-23</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('imd_heatwave_standards')">🇮🇳 IMD Alert Thresholds</button>
+              </div>
             </div>
 
             <!-- Formula 5: Campus Hotspot Priority -->
@@ -784,14 +828,90 @@
                 <span class="heat-formula-code">Multi-Criteria Urgency</span>
               </div>
               <div class="heat-formula-desc">
-                Ranks campus cooling hotspots for the Action Plan using peak ground heat, concrete density (NDBI), shade deficiency, and pedestrian walkways.
+                Ranks campus cooling hotspots for the Action Plan using peak ground heat (Landsat 9), concrete density (NDBI), shade deficiency (NDVI), and pedestrian walkways.
+              </div>
+              <div class="formula-cite-row">
+                <span class="formula-cite-label">Primary Citations:</span>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('ndbi_zha')">🏗️ Zha et al. (2003) [NDBI]</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('landsat9_tirs2')">🛰️ Landsat 9 TIRS-2 (2022)</button>
               </div>
             </div>
+
+            <!-- Formula 6: Hospital Patient Surge Model -->
+            <div class="heat-formula-card" style="border-left: 3px solid #0284c7;">
+              <div class="heat-formula-header">
+                <span class="heat-formula-name">🏥 Hospital Patient Surge Model</span>
+                <span class="heat-formula-code">Y_t = Y_0 × [1 + (P_hw × β_alert × C_lag)]</span>
+              </div>
+              <div class="heat-formula-desc">
+                Predicts casualty admissions and outpatient footfall during heatwave days for study area facilities (Student Health Centre, Jagamara UPHC, Astang Ayurveda, and IMS & SUM Hospital). Quantifies syndromic cases (sunstroke, cardiovascular, AKI) and readiness needs (HSU beds, IV fluids).
+              </div>
+              <div class="formula-cite-row">
+                <span class="formula-cite-label">Primary Citations:</span>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('who_heat_guidance')">🏥 WHO (2024)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('ncdc_nap_hri')">🇮🇳 NCDC NAP-HRI (2024)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('aiims_clinical_protocols')">🩺 AIIMS (2023)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('phung_meta_analysis')">📊 Phung (2016)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('bobb_cumulative_lag')">📈 Bobb (2014)</button>
+              </div>
+            </div>
+
+            <!-- Open Full Bibliography Button -->
+            <button type="button" onclick="openCitationsModal('all')" class="citations-open-full-btn">
+              <span style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:16px;">📚</span>
+                <span>Browse Full Scientific Bibliography & Official DOIs (16 Citations)</span>
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
           </div>
 
           <button id="startSimModalBtn" class="modal-cta-btn" type="button">
             🌿 Start Planning My Campus
           </button>
+        </div>
+      </div>
+
+      <!-- ================================================================
+           SCIENTIFIC DOCUMENTATION & ACADEMIC CITATIONS MODAL
+      ================================================================ -->
+      <div id="citationsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="citationsModalTitle">
+        <div class="modal-card citations-modal-card">
+          <div class="modal-header">
+            <div>
+              <span class="modal-eyebrow">📚 Peer-Reviewed Literature & Institutional Frameworks</span>
+              <h2 id="citationsModalTitle" class="modal-title">Scientific Documentation & Citations</h2>
+            </div>
+            <button id="closeCitationsModalBtn" class="icon-button close-button" type="button" aria-label="Close citations modal">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <p class="modal-subtitle">Comprehensive bibliography, technical sensor manuals, and mathematical source credits across all ShadeRoute analytical layers.</p>
+
+          <!-- Search & Filter Controls -->
+          <div class="citations-controls-bar">
+            <div class="citations-search-wrap">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="citationsSearchInput" type="text" placeholder="Search authors, formula, DOI, or keyword (e.g. NDVI, WHO, Rothfusz)..." class="citations-search-input">
+            </div>
+            <div id="citationsCategoryPills" class="citations-category-pills">
+              <!-- Dynamically populated category buttons -->
+            </div>
+          </div>
+
+          <!-- Citations List Container -->
+          <div id="citationsListContainer" class="citations-list-container">
+            <!-- Dynamically populated citation cards -->
+          </div>
+
+          <div class="citations-modal-footer">
+            <div style="font-size:11.5px;color:#64748b;">
+              Showing <strong id="citationsCountLabel" style="color:#0f172a;">16</strong> peer-reviewed & institutional references.
+            </div>
+            <button id="closeCitationsFooterBtn" type="button" class="btn-secondary" style="padding:8px 18px;font-size:12px;font-weight:700;">
+              Close Directory
+            </button>
+          </div>
         </div>
       </div>
 

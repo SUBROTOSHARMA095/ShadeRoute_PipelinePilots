@@ -1361,6 +1361,373 @@ html, body {
     overflow: hidden;
 }
 
+/* Patient Surge Widget Sub-Navigation & Controls */
+.surge-nav-toggle {
+    display: flex;
+    background: #f1f5f9;
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 10px;
+    gap: 3px;
+}
+
+.surge-nav-btn {
+    flex: 1;
+    padding: 6px 0;
+    font-size: 11px;
+    font-family: inherit;
+    font-weight: 700;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: all 0.15s ease;
+}
+
+.surge-nav-btn.active {
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.facility-switch-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+}
+
+.facility-pill-btn {
+    flex: 1;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.facility-pill-btn.active {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
+    box-shadow: 0 1px 4px rgba(2, 132, 199, 0.25);
+}
+
+.facility-select-dropdown {
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: 1.5px solid #cbd5e1;
+    background: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f172a;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+    margin-bottom: 6px;
+    transition: border-color 0.15s ease;
+}
+
+.facility-select-dropdown:focus {
+    border-color: #0284c7;
+}
+
+.transit-info-pill {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 10.5px;
+    color: #334155;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.medical-facility-marker.ambulance-marker {
+    border: 1.5px solid #f59e0b;
+    background: rgba(254, 252, 232, 0.96);
+}
+
+.ambulance-icon-circle {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    box-shadow: 0 2px 6px rgba(217, 119, 6, 0.4);
+}
+
+.surge-alert-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.surge-metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.surge-stat-card {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 9px 10px;
+}
+
+.surge-stat-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+}
+
+.surge-stat-val {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+}
+
+.surge-stat-sub {
+    font-size: 10px;
+    color: #94a3b8;
+    margin-top: 3px;
+    font-weight: 600;
+}
+
+.syndromic-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.syndromic-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.3;
+}
+
+.syndromic-badge {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 99px;
+    white-space: nowrap;
+}
+
+.resource-box {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.resource-box-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: #166534;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.resource-item {
+    font-size: 11px;
+    color: #14532d;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.resource-item:last-child {
+    margin-bottom: 0;
+}
+
+.citation-btn {
+    width: 100%;
+    padding: 7px;
+    border-radius: 7px;
+    border: 1px dashed #94a3b8;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: all 0.15s ease;
+}
+
+.citation-btn:hover {
+    background: #f1f5f9;
+    border-color: #64748b;
+    color: #0f172a;
+}
+
+/* Medical Facility Map Markers */
+.medical-facility-marker {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(12px);
+    border-radius: 999px;
+    padding: 5px 10px 5px 6px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.22), 0 0 0 2px #fff;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.medical-facility-marker:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.3), 0 0 0 2.5px #fff;
+}
+
+.medical-facility-marker.clinic-marker {
+    border: 1.5px solid #0284c7;
+}
+
+.medical-facility-marker.hospital-marker {
+    border: 1.5px solid #dc2626;
+}
+
+.facility-icon-circle {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.clinic-icon-circle {
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.4);
+}
+
+.hospital-icon-circle {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4);
+}
+
+.facility-label-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.facility-name-text {
+    font-size: 11px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+}
+
+.facility-tier-badge {
+    font-size: 9px;
+    font-weight: 700;
+    color: #64748b;
+    line-height: 1.2;
+}
+
+/* Facility Map Popup */
+.facility-popup-content {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    padding: 10px 12px;
+    min-width: 240px;
+    max-width: 280px;
+    color: #0f172a;
+}
+
+.facility-popup-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.facility-popup-title {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+}
+
+.facility-popup-subtitle {
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.facility-popup-stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10.5px;
+    margin-bottom: 4px;
+    color: #334155;
+}
+
+.facility-popup-btn {
+    width: 100%;
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: #0284c7;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.facility-popup-btn:hover {
+    background: #0369a1;
+}
+
 /* ==========================================================================
    MAP POPUPS — PREMIUM STYLE
    ========================================================================== */
@@ -1961,3 +2328,637 @@ html, body {
     transform: translateX(-50%) translateY(-2px);
     box-shadow: 0 8px 28px rgba(5, 150, 105, 0.50);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   HEALTHCARE FACILITY MARKERS & POPUPS
+   ───────────────────────────────────────────────────────────── */
+.medical-facility-marker {
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    padding: 3px 8px 3px 4px;
+    border-radius: 999px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.22), 0 1px 4px rgba(15, 23, 42, 0.12);
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+    gap: 6px;
+    border: 1.5px solid #cbd5e1;
+    user-select: none;
+    white-space: nowrap;
+}
+.medical-facility-marker:hover {
+    transform: scale(1.08) translateY(-2px);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.30);
+    z-index: 10;
+}
+.medical-facility-marker.clinic-marker {
+    border-color: #0284c7;
+}
+.medical-facility-marker.hospital-marker {
+    border-color: #dc2626;
+}
+.facility-icon-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.facility-icon-circle.clinic-icon-circle {
+    background: #e0f2fe;
+    border: 1px solid #7dd3fc;
+}
+.facility-icon-circle.ambulance-icon-circle {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+}
+.facility-icon-circle.hospital-icon-circle {
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+}
+.facility-label-group {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+.facility-name-text {
+    font-size: 10px;
+    font-weight: 800;
+    color: #0f172a;
+    white-space: nowrap;
+}
+.facility-tier-badge {
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
+}
+.facility-popup-content {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    padding: 4px;
+    color: #0f172a;
+}
+.facility-popup-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.facility-popup-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: #0f172a;
+}
+.facility-popup-subtitle {
+    font-size: 9.5px;
+    color: #64748b;
+    font-weight: 600;
+}
+.facility-popup-stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    padding: 2.5px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+.facility-popup-stat-row span {
+    color: #64748b;
+}
+.facility-popup-stat-row strong {
+    color: #0f172a;
+}
+.facility-popup-btn {
+    width: 100%;
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: #0284c7;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-family: inherit;
+}
+.facility-popup-btn:hover {
+    background: #0369a1;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PATIENT SURGE WIDGET CONTROLS & CARDS
+   ───────────────────────────────────────────────────────────── */
+.facility-select-dropdown {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #0f172a;
+    background: #f8fafc;
+    cursor: pointer;
+    outline: none;
+    margin-bottom: 6px;
+    font-family: inherit;
+    transition: border-color 0.15s ease;
+}
+.facility-select-dropdown:focus {
+    border-color: #0284c7;
+    background: #ffffff;
+}
+.facility-switch-bar {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.facility-pill-btn {
+    flex: 1 1 calc(50% - 4px);
+    padding: 5px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.15s ease;
+    text-align: center;
+}
+.facility-pill-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+.facility-pill-btn.active {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
+    box-shadow: 0 1px 4px rgba(2, 132, 199, 0.25);
+}
+.transit-info-pill {
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    padding: 7px 9px;
+    margin-bottom: 8px;
+}
+.surge-nav-toggle {
+    display: flex;
+    gap: 4px;
+    background: #f1f5f9;
+    padding: 3px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #e2e8f0;
+}
+.surge-nav-btn {
+    flex: 1;
+    padding: 6px 0;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+.surge-nav-btn.active {
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
+}
+.surge-alert-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 11.5px;
+}
+.surge-metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.surge-stat-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 9px;
+}
+.surge-stat-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 2px;
+}
+.surge-stat-val {
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.surge-stat-sub {
+    font-size: 9px;
+    color: #64748b;
+    margin-top: 3px;
+}
+.syndromic-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 8px;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+.syndromic-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #1e293b;
+}
+.syndromic-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 99px;
+    white-space: nowrap;
+}
+.resource-box {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 9px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+.resource-box-title {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #166534;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.resource-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #166534;
+    padding: 2.5px 0;
+    border-bottom: 1px dashed #dcfce7;
+}
+.resource-item:last-child {
+    border-bottom: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SCIENTIFIC CITATIONS MODAL & BIBLIOGRAPHY DIRECTORY
+   ───────────────────────────────────────────────────────────── */
+.citations-modal-card {
+    max-width: 860px !important;
+    width: 95vw !important;
+    max-height: 88vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 24px 28px !important;
+    overflow: hidden !important;
+}
+.citations-controls-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 14px 0 16px;
+}
+.citations-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 8px 14px;
+    transition: all 0.2s ease;
+}
+.citations-search-wrap:focus-within {
+    border-color: #0284c7;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+.citations-search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 12.5px;
+    font-family: inherit;
+    color: #0f172a;
+}
+.citations-search-input::placeholder {
+    color: #94a3b8;
+}
+.citations-category-pills {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+}
+.citations-category-pills::-webkit-scrollbar {
+    display: none;
+}
+.citations-category-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+.citations-category-pill:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+.citations-category-pill.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+}
+.pill-count-badge {
+    background: rgba(0, 0, 0, 0.08);
+    font-size: 9.5px;
+    padding: 1px 6px;
+    border-radius: 99px;
+}
+.citations-category-pill.active .pill-count-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+.citations-list-container {
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-right: 4px;
+    margin-bottom: 12px;
+}
+.citation-card {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.citation-card:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+    transform: translateY(-1px);
+}
+.citation-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+}
+.citation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #0284c7;
+    background: #e0f2fe;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+.citation-year-badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 7px;
+    border-radius: 6px;
+}
+.citation-title {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.35;
+    margin: 0;
+}
+.citation-authors {
+    font-size: 11.5px;
+    color: #334155;
+    line-height: 1.3;
+}
+.citation-venue {
+    font-size: 11px;
+    color: #64748b;
+}
+.citation-role-box {
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-left: 3px solid #0284c7;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 2px;
+}
+.citation-role-title {
+    font-size: 10px;
+    font-weight: 800;
+    color: #0369a1;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 3px;
+}
+.citation-role-desc {
+    font-size: 11px;
+    color: #475569;
+    line-height: 1.35;
+}
+.citation-formula-code {
+    margin-top: 5px;
+    font-size: 10.5px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.citation-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+    flex-wrap: wrap;
+}
+.citation-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0284c7;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 6px;
+    padding: 5px 10px;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+.citation-link-btn:hover {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+}
+.citation-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+.citation-copy-btn:hover {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+.citations-modal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   INLINE FORMULA CITATION CHIPS & GLOSSARY BUTTONS
+   ───────────────────────────────────────────────────────────── */
+.formula-cite-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed #e2e8f0;
+}
+.formula-cite-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.formula-cite-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #0369a1;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 4px;
+    padding: 2px 7px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+}
+.formula-cite-pill:hover {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+}
+.citations-open-full-btn {
+    width: 100%;
+    margin-top: 14px;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 16px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: inherit;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.citations-open-full-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(2, 132, 199, 0.35);
+}
+.glossary-cite-btn {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 3px 6px;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #0284c7;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: inherit;
+    transition: all 0.15s ease;
+}
+.glossary-cite-btn:hover {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+}
+
+

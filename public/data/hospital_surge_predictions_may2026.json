@@ -1,0 +1,629 @@
+{
+  "metadata": {
+    "model": "Epidemiological Heat-Health Surge Model (WHO / NCDC NAP-HRI / AIIMS)",
+    "study_area": "Bhubaneswar (SOA ITER Campus & IMS SUM Hospital)",
+    "forecast_dates": [
+      "2026-05-13",
+      "2026-05-14",
+      "2026-05-15"
+    ],
+    "academic_references": [
+      {
+        "authority": "WHO (World Health Organization)",
+        "title": "Heat–Health Action Plans: Guidance (2nd Edition, 2024/2026)",
+        "summary": "Establishes health system surge response protocols, hydration stations, and documented 10%-25% all-cause emergency visit surge during extreme heat events.",
+        "url": "https://www.who.int/publications/i/item/9789289071918",
+        "url_label": "Official WHO Publication",
+        "apa": "World Health Organization. (2024). Heat–health action plans: Guidance (2nd ed.). WHO Press."
+      },
+      {
+        "authority": "National Centre for Disease Control (NCDC) & MoHFW",
+        "title": "National Action Plan on Heat-Related Illnesses (NAP-HRI)",
+        "summary": "Standardizes hospital tiered preparedness, dedicated Heat Stroke Units (HSUs), emergency cooling beds, and IHIP heat reporting across Indian facilities.",
+        "url": "https://ncdc.mohfw.gov.in",
+        "url_label": "MoHFW Govt Portal",
+        "apa": "National Centre for Disease Control. (2024). National action plan on heat-related illnesses (NAP-HRI). Ministry of Health and Family Welfare, Government of India."
+      },
+      {
+        "authority": "AIIMS (All India Institute of Medical Sciences)",
+        "title": "Standard Clinical Operating Protocols for Emergency Management of Severe Heat-Related Illnesses",
+        "summary": "Mandates active evaporative/ice-water immersion cooling, aggressive fluid resuscitation guidelines, core temperature tracking, and daily surveillance reporting.",
+        "url": "https://www.aiims.edu",
+        "url_label": "AIIMS Institutional Portal",
+        "apa": "All India Institute of Medical Sciences. (2023). Standard clinical operating protocols for emergency management of severe heat-related illnesses. AIIMS Emergency Medicine Press."
+      },
+      {
+        "authority": "India Meteorological Department (IMD)",
+        "title": "Standard Operating Procedure (SOP) for Heat Wave Forecasting, Warning and Dissemination",
+        "summary": "Defines Yellow (Watch), Orange (Alert), and Red (Warning) thresholds, departure from normal temperatures, and multi-day duration impacts for Odisha.",
+        "url": "https://mausam.imd.gov.in",
+        "url_label": "IMD MoES Portal",
+        "apa": "India Meteorological Department. (2023). Standard operating procedure for heat wave forecasting, warning and dissemination. Ministry of Earth Sciences, Government of India."
+      },
+      {
+        "authority": "Phung et al., Environmental Research (2016)",
+        "title": "Ambient Temperature and Risk of Cardiovascular, Respiratory, and Metabolic Hospital Admissions: A Systematic Review and Meta-Analysis",
+        "summary": "Pooled relative risk of hospital admissions per heatwave: RR = 1.16 (95% CI: 1.09-1.24), with renal RR = 1.30 and direct heat illness RR = 2.45.",
+        "url": "https://doi.org/10.1016/j.envres.2016.08.031",
+        "url_label": "ScienceDirect (DOI: 10.1016/j.envres.2016.08.031)",
+        "apa": "Phung, D., Thai, P. K., Guo, Y., Morawska, L., Rutherford, S., & Chu, C. (2016). Ambient temperature and risk of cardiovascular, respiratory, and metabolic hospital admissions: A systematic review and meta-analysis. Environmental Research, 151, 804–814."
+      },
+      {
+        "authority": "Bobb et al., JAMA (2014)",
+        "title": "Cause-Specific Risk of Hospital Admission Related to Extreme Heat in Older Adults",
+        "summary": "Demonstrates compounding +35% to +45% emergency surge on consecutive heatwave days due to physiological thermal accumulation and failed nighttime cooling.",
+        "url": "https://doi.org/10.1001/jama.2014.15715",
+        "url_label": "JAMA Network (DOI: 10.1001/jama.2014.15715)",
+        "apa": "Bobb, J. F., Obermeyer, Z., Wang, Y., & Dominici, F. (2014). Cause-specific risk of hospital admission related to extreme heat in older adults. JAMA, 312(24), 2659–2667."
+      }
+    ]
+  },
+  "facilities": {
+    "soa_student_health_centre": {
+      "name": "SOA ITER Student Health Centre",
+      "tier": "Level 1: University Student Health Service",
+      "category": "On-Campus Student Health Centre",
+      "capacity_beds": 8,
+      "baseline_opd": 80,
+      "baseline_emergency": 8,
+      "baseline_heat_illness": 1,
+      "dist_from_iter_km": 0.0,
+      "drive_time_min": 0,
+      "location": "SOA ITER Campus 1 Core, Jagamara",
+      "plus_code": "7Q2X+6X Bhubaneswar, Odisha",
+      "coordinates": [
+        85.799937,
+        20.250562
+      ],
+      "eligibility": "Available exclusively for ITER students & faculty (free of cost)",
+      "description": "On-campus primary dispensary providing free triage, Oral Rehydration Therapy (ORT), and vital monitoring. Serious cases are stabilized and transferred via university ambulance to IMS & SUM Hospital."
+    },
+    "jagamara_uphc": {
+      "name": "Jagamara UPHC",
+      "tier": "Level 1: Govt. Urban Primary Health Centre (NHM)",
+      "category": "Neighborhood Public Health Centre",
+      "capacity_beds": 15,
+      "baseline_opd": 160,
+      "baseline_emergency": 18,
+      "baseline_heat_illness": 2,
+      "dist_from_iter_km": 0.5,
+      "drive_time_min": 2,
+      "location": "Jagamara Main Road, Khandagiri, Bhubaneswar",
+      "plus_code": "6RX2+99 Bhubaneswar, Odisha",
+      "coordinates": [
+        85.80802,
+        20.2462
+      ],
+      "eligibility": "Open to all public, neighborhood residents, and outdoor workers",
+      "description": "Primary public health centre covering the 3 km² neighborhood population; free ORS distribution, worker heat stress screening, and early heatstroke triage."
+    },
+    "astang_ayurveda": {
+      "name": "Astang Ayurveda Hospital & Centre",
+      "tier": "Level 1-2: State Ayurvedic Hospital & Centre",
+      "category": "Ayurvedic Medical Hospital",
+      "capacity_beds": 30,
+      "baseline_opd": 180,
+      "baseline_emergency": 14,
+      "baseline_heat_illness": 3,
+      "dist_from_iter_km": 0.8,
+      "drive_time_min": 3,
+      "location": "Gandamunda, Jagamara-Sundarpada Road, Bhubaneswar",
+      "plus_code": "6RV2+RM Bhubaneswar, Odisha",
+      "coordinates": [
+        85.80613,
+        20.24158
+      ],
+      "eligibility": "Open to public for outpatient & traditional heat management",
+      "description": "State Ayurvedic medical institution in Gandamunda; specialized traditional herbal rehydration, cooling therapy, and heat exhaustion recovery within the 3 km² study zone."
+    },
+    "sum_hospital": {
+      "name": "IMS & SUM Hospital",
+      "tier": "Level 3: Quaternary Medical College Hospital",
+      "category": "Quaternary Referral Teaching Hospital (SOA)",
+      "capacity_beds": 1750,
+      "baseline_opd": 3200,
+      "baseline_emergency": 210,
+      "baseline_heat_illness": 6,
+      "dist_from_iter_km": 4.8,
+      "drive_time_min": 11,
+      "location": "Kalinga Nagar, Ghatikia, Bhubaneswar",
+      "plus_code": "7QM9+7W Bhubaneswar, Odisha",
+      "coordinates": [
+        85.769813,
+        20.283187
+      ],
+      "eligibility": "Tertiary & Quaternary emergency referral hub"
+    }
+  },
+  "daily_forecasts": {
+    "2026-05-13": {
+      "date": "2026-05-13",
+      "heatwave_probability": 0.36,
+      "is_heatwave": false,
+      "consecutive_day_index": 0,
+      "alert_level": "Yellow Alert",
+      "alert_color": "#f59e0b",
+      "danger_window": "13:00-14:00",
+      "unsafe_duration": "1 hour(s)",
+      "surge_percent": 7.2,
+      "surge_multiplier": 1.072,
+      "clinical_advisory": "MODERATE SURGE: Alert triage staff, establish oral rehydration therapy (ORT) corner, monitor vulnerable outdoor workers.",
+      "facility_projections": {
+        "soa_student_health_centre": {
+          "facility_name": "SOA ITER Student Health Centre",
+          "tier": "Level 1: University Student Health Service",
+          "baseline_emergency": 8,
+          "projected_emergency": 9,
+          "excess_emergency_patients": 1,
+          "baseline_opd": 80,
+          "projected_opd": 82,
+          "excess_opd_patients": 2,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 0
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 0
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 0
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 0
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 1,
+            "emergency_iv_fluid_litres": 4,
+            "rapid_cooling_stations": 1
+          }
+        },
+        "jagamara_uphc": {
+          "facility_name": "Jagamara UPHC",
+          "tier": "Level 1: Govt. Urban Primary Health Centre (NHM)",
+          "baseline_emergency": 18,
+          "projected_emergency": 19,
+          "excess_emergency_patients": 1,
+          "baseline_opd": 160,
+          "projected_opd": 165,
+          "excess_opd_patients": 5,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 0
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 0
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 0
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 0
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 1,
+            "emergency_iv_fluid_litres": 4,
+            "rapid_cooling_stations": 1
+          }
+        },
+        "astang_ayurveda": {
+          "facility_name": "Astang Ayurveda Hospital & Centre",
+          "tier": "Level 1-2: State Ayurvedic Hospital & Centre",
+          "baseline_emergency": 14,
+          "projected_emergency": 15,
+          "excess_emergency_patients": 1,
+          "baseline_opd": 180,
+          "projected_opd": 185,
+          "excess_opd_patients": 5,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 0
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 0
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 0
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 0
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 1,
+            "emergency_iv_fluid_litres": 4,
+            "rapid_cooling_stations": 1
+          }
+        },
+        "sum_hospital": {
+          "facility_name": "IMS & SUM Hospital",
+          "tier": "Level 3: Quaternary Medical College Hospital",
+          "baseline_emergency": 210,
+          "projected_emergency": 225,
+          "excess_emergency_patients": 15,
+          "baseline_opd": 3200,
+          "projected_opd": 3292,
+          "excess_opd_patients": 92,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 4
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 4
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 4
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 3
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 3,
+            "emergency_iv_fluid_litres": 52,
+            "rapid_cooling_stations": 8
+          }
+        }
+      }
+    },
+    "2026-05-14": {
+      "date": "2026-05-14",
+      "heatwave_probability": 0.616,
+      "is_heatwave": true,
+      "consecutive_day_index": 1,
+      "alert_level": "Orange Alert",
+      "alert_color": "#ea580c",
+      "danger_window": "11:00-16:00",
+      "unsafe_duration": "5 hour(s)",
+      "surge_percent": 21.6,
+      "surge_multiplier": 1.216,
+      "clinical_advisory": "SEVERE SURGE: Operationalize dedicated Heat Stroke Unit (HSU), stock emergency IV cold saline, pre-position rapid cooling teams.",
+      "facility_projections": {
+        "soa_student_health_centre": {
+          "facility_name": "SOA ITER Student Health Centre",
+          "tier": "Level 1: University Student Health Service",
+          "baseline_emergency": 8,
+          "projected_emergency": 10,
+          "excess_emergency_patients": 2,
+          "baseline_opd": 80,
+          "projected_opd": 87,
+          "excess_opd_patients": 7,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 0
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 1
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 0
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 0
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 1,
+            "emergency_iv_fluid_litres": 7,
+            "rapid_cooling_stations": 1
+          }
+        },
+        "jagamara_uphc": {
+          "facility_name": "Jagamara UPHC",
+          "tier": "Level 1: Govt. Urban Primary Health Centre (NHM)",
+          "baseline_emergency": 18,
+          "projected_emergency": 22,
+          "excess_emergency_patients": 4,
+          "baseline_opd": 160,
+          "projected_opd": 174,
+          "excess_opd_patients": 14,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 1
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 1
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 1
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 1
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 1,
+            "emergency_iv_fluid_litres": 14,
+            "rapid_cooling_stations": 2
+          }
+        },
+        "astang_ayurveda": {
+          "facility_name": "Astang Ayurveda Hospital & Centre",
+          "tier": "Level 1-2: State Ayurvedic Hospital & Centre",
+          "baseline_emergency": 14,
+          "projected_emergency": 17,
+          "excess_emergency_patients": 3,
+          "baseline_opd": 180,
+          "projected_opd": 196,
+          "excess_opd_patients": 16,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 1
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 1
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 1
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 1
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 1,
+            "emergency_iv_fluid_litres": 10,
+            "rapid_cooling_stations": 2
+          }
+        },
+        "sum_hospital": {
+          "facility_name": "IMS & SUM Hospital",
+          "tier": "Level 3: Quaternary Medical College Hospital",
+          "baseline_emergency": 210,
+          "projected_emergency": 255,
+          "excess_emergency_patients": 45,
+          "baseline_opd": 3200,
+          "projected_opd": 3476,
+          "excess_opd_patients": 276,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 11
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 14
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 11
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 9
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 9,
+            "emergency_iv_fluid_litres": 158,
+            "rapid_cooling_stations": 22
+          }
+        }
+      }
+    },
+    "2026-05-15": {
+      "date": "2026-05-15",
+      "heatwave_probability": 0.725,
+      "is_heatwave": true,
+      "consecutive_day_index": 2,
+      "alert_level": "Red Alert",
+      "alert_color": "#dc2626",
+      "danger_window": "11:00-16:00",
+      "unsafe_duration": "5 hour(s)",
+      "surge_percent": 43.5,
+      "surge_multiplier": 1.435,
+      "clinical_advisory": "CRITICAL SURGE: Activate full hospital disaster code, deploy maximum HSU cooling beds, suspend non-essential elective procedures.",
+      "facility_projections": {
+        "soa_student_health_centre": {
+          "facility_name": "SOA ITER Student Health Centre",
+          "tier": "Level 1: University Student Health Service",
+          "baseline_emergency": 8,
+          "projected_emergency": 11,
+          "excess_emergency_patients": 3,
+          "baseline_opd": 80,
+          "projected_opd": 94,
+          "excess_opd_patients": 14,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 1
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 1
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 1
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 1
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 1,
+            "emergency_iv_fluid_litres": 10,
+            "rapid_cooling_stations": 2
+          }
+        },
+        "jagamara_uphc": {
+          "facility_name": "Jagamara UPHC",
+          "tier": "Level 1: Govt. Urban Primary Health Centre (NHM)",
+          "baseline_emergency": 18,
+          "projected_emergency": 26,
+          "excess_emergency_patients": 8,
+          "baseline_opd": 160,
+          "projected_opd": 188,
+          "excess_opd_patients": 28,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 2
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 2
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 2
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 2
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 2,
+            "emergency_iv_fluid_litres": 28,
+            "rapid_cooling_stations": 4
+          }
+        },
+        "astang_ayurveda": {
+          "facility_name": "Astang Ayurveda Hospital & Centre",
+          "tier": "Level 1-2: State Ayurvedic Hospital & Centre",
+          "baseline_emergency": 14,
+          "projected_emergency": 20,
+          "excess_emergency_patients": 6,
+          "baseline_opd": 180,
+          "projected_opd": 211,
+          "excess_opd_patients": 31,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 2
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 2
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 2
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 1
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 1,
+            "emergency_iv_fluid_litres": 21,
+            "rapid_cooling_stations": 3
+          }
+        },
+        "sum_hospital": {
+          "facility_name": "IMS & SUM Hospital",
+          "tier": "Level 3: Quaternary Medical College Hospital",
+          "baseline_emergency": 210,
+          "projected_emergency": 301,
+          "excess_emergency_patients": 91,
+          "baseline_opd": 3200,
+          "projected_opd": 3757,
+          "excess_opd_patients": 557,
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 23
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 27
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 23
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 18
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 18,
+            "emergency_iv_fluid_litres": 318,
+            "rapid_cooling_stations": 46
+          }
+        }
+      }
+    }
+  }
+}
