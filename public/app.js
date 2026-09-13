@@ -1015,6 +1015,41 @@ function initHeatZoneLayers(zonesGeoJSON) {
 // Simple date dropdown for the Mar 1 - May 12 2026 timeline. Reads the
 // dates straight from manifest.json rather than hardcoding a range, so it
 // stays correct if the model is re-run with a different window later.
+function switchHeatZoneDate(dateStr) {
+    if (!heatZoneManifest || !heatZoneManifest.dates || !heatZoneManifest.dates.length) return;
+    const entry = heatZoneManifest.dates.find(d => d.date === dateStr);
+    if (!entry) return;
+
+    const select = document.getElementById('heatZoneDateSelect');
+    if (select && select.value !== dateStr) {
+        select.value = dateStr;
+    }
+
+    fetch(`/data/${entry.file}`)
+        .then(res => res.json())
+        .then(zonesGeoJSON => {
+            currentHeatZoneDate = entry.date;
+            if (map && map.getSource('heat-risk-zones')) {
+                map.getSource('heat-risk-zones').setData(zonesGeoJSON);
+            }
+            if (typeof showMessage === 'function') {
+                const hhsiTxt = entry.hhsi_max_overall ? ` (Max HHSI: ${entry.hhsi_max_overall}°C)` : '';
+                showMessage(`Showing thermal stress for ${entry.date}${hhsiTxt}`);
+            }
+        })
+        .catch(error => console.error(`Could not load heat risk data for ${entry.date}:`, error));
+
+    // Also sync the floating prediction card if this date is present in predictions
+    if (predictionsSummaryData && predictionsSummaryData[dateStr] && activePredictionDate !== dateStr) {
+        activePredictionDate = dateStr;
+        if (typeof renderPredictionWidget === 'function') {
+            renderPredictionWidget();
+        }
+    }
+}
+window.switchHeatZoneDate = switchHeatZoneDate;
+
+// Date dropdown for the dynamic satellite-backed timeline.
 function buildHeatZoneDatePicker() {
     if (!heatZoneManifest || !heatZoneManifest.dates || !heatZoneManifest.dates.length) return;
 
@@ -1023,45 +1058,103 @@ function buildHeatZoneDatePicker() {
         select = document.createElement('select');
         select.id = 'heatZoneDateSelect';
         select.style.cssText = `
-            font-family: Inter, sans-serif;
+            font-family: 'Plus Jakarta Sans', Inter, sans-serif;
             font-weight: 700;
             font-size: 11px;
-            padding: 4px 8px;
+            padding: 5px 9px;
             border: 1px solid var(--border);
             border-radius: 6px;
-            background: rgba(0, 0, 0, 0.4);
-            color: #fff;
+            background: #ffffff;
+            color: #0f172a;
             cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            max-width: 175px;
         `;
 
         const container = document.getElementById('datePickerContainer');
         if (container) {
+            container.innerHTML = '';
             container.appendChild(select);
         }
 
         select.addEventListener('change', () => {
-            const entry = heatZoneManifest.dates.find(d => d.date === select.value);
-            if (!entry) return;
-
-            fetch(`/data/${entry.file}`)
-                .then(res => res.json())
-                .then(zonesGeoJSON => {
-                    currentHeatZoneDate = entry.date;
-                    if (map.getSource('heat-risk-zones')) {
-                        map.getSource('heat-risk-zones').setData(zonesGeoJSON);
-                    }
-                    showMessage(`Showing thermal stress for ${entry.date}`);
-                })
-                .catch(error => console.error(`Could not load heat risk data for ${entry.date}:`, error));
+            switchHeatZoneDate(select.value);
         });
     }
 
     select.innerHTML = heatZoneManifest.dates.map(d => {
-        const label = d.date === heatZoneManifest.today ? `${d.date} (Today)` : d.date;
+        let label = d.date;
+        if (d.date === heatZoneManifest.today) {
+            label = `${d.date} (Today / Live)`;
+        } else if (d.date > heatZoneManifest.today) {
+            const diffDays = Math.round((new Date(d.date) - new Date(heatZoneManifest.today)) / (86400000));
+            label = `${d.date} (+${diffDays}d Forecast)`;
+        }
         return `<option value="${d.date}">${label}</option>`;
     }).join('');
+
     select.value = currentHeatZoneDate || heatZoneManifest.today;
 }
+
+let isSyncingTimeline = false;
+async function triggerTimelineSync() {
+    if (isSyncingTimeline) return;
+    isSyncingTimeline = true;
+
+    const btns = [
+        document.getElementById('syncTimelineBtn'),
+        document.getElementById('syncTimelineBtnRight')
+    ].filter(Boolean);
+
+    btns.forEach(b => {
+        b.dataset.origHtml = b.innerHTML;
+        b.innerHTML = '<span>⏳ Syncing...</span>';
+        b.disabled = true;
+    });
+
+    if (typeof showMessage === 'function') {
+        showMessage('📡 Fetching dynamic satellite & NWP data to expand timeline...');
+    }
+
+    try {
+        const resp = await fetch('/api/timeline/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            throw new Error(data.error || 'Timeline synchronization failed');
+        }
+
+        if (typeof showMessage === 'function') {
+            showMessage(`✓ Heat risk mapping updated! Total dates: ${data.totalDates} (${data.durationSeconds}s)`);
+        }
+
+        // Reload manifest and refresh layers
+        const manifestRes = await fetch('/data/timeline/manifest.json?t=' + Date.now());
+        if (manifestRes.ok) {
+            heatZoneManifest = await manifestRes.json();
+            buildHeatZoneDatePicker();
+            if (heatZoneManifest.today) {
+                switchHeatZoneDate(heatZoneManifest.today);
+            }
+        }
+        // Refresh forecast widget
+        if (typeof loadRightPredictionWidget === 'function') {
+            await loadRightPredictionWidget();
+        }
+    } catch (err) {
+        console.error('[Timeline Sync Error]:', err);
+        alert('Failed to sync timeline: ' + err.message);
+    } finally {
+        isSyncingTimeline = false;
+        btns.forEach(b => {
+            if (b.dataset.origHtml) b.innerHTML = b.dataset.origHtml;
+            b.disabled = false;
+        });
+    }
+}
+window.triggerTimelineSync = triggerTimelineSync;
 
 // Tracks a marker placed on the clicked heat zone
 let heatZoneHighlightMarker = null;
@@ -1278,10 +1371,11 @@ function populateHeatZoneLegendPanel() {
 let predictionsSummaryData = null;
 let predictionsRecommendationsData = null;
 let hospitalSurgeData = null;
-let activePredictionDate = "2026-05-13";
+let activePredictionDate = null;
 let activePredictionTab = "weather"; // "weather" | "surge"
 let activeSurgeFacility = "soa_student_health_centre"; // "soa_student_health_centre" | "jagamara_uphc" | "astang_ayurveda" | "sum_hospital"
 let showSurgeCitations = false;
+let showSurgeDiurnal = false;
 let isPredictionWidgetCollapsed = false;
 
 function switchPredictionDate(dateStr) {
@@ -1472,17 +1566,88 @@ document.addEventListener("DOMContentLoaded", () => {
     loadRightPredictionWidget();
 });
 
+let liveWeatherData = null;
+let isRefreshingForecast = false;
+
+function formatForecastDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+    }
+    return dateStr;
+}
+
+function formatForecastFullDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    return dateStr;
+}
+
+async function triggerLiveNwpRefresh(testStorm = false) {
+    if (isRefreshingForecast) return;
+    isRefreshingForecast = true;
+    const btnId = testStorm ? 'stormTestBtn' : 'liveRefreshBtn';
+    const btn = document.getElementById(btnId);
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) { btn.innerHTML = '⏳ Computing...'; btn.disabled = true; }
+
+    try {
+        const resp = await fetch('/api/run-live-forecast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ testStorm })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success) throw new Error(data.error || 'Forecast pipeline returned an error.');
+        console.log('[Live NWP Success]:', data);
+        await loadRightPredictionWidget();
+        showMessage(`✓ ${testStorm ? '⛈️ Storm scenario' : '⚡ Live NWP'} forecast refreshed in ${data.durationSeconds}s`);
+    } catch (err) {
+        console.error('[Live Refresh Error]:', err);
+        showMessage('❌ Forecast refresh failed: ' + err.message.slice(0, 80));
+    } finally {
+        isRefreshingForecast = false;
+        const freshBtn = document.getElementById(btnId);
+        if (freshBtn) { freshBtn.innerHTML = originalText; freshBtn.disabled = false; }
+    }
+}
+window.triggerLiveNwpRefresh = triggerLiveNwpRefresh;
+
 function loadRightPredictionWidget() {
-    Promise.all([
-        fetch('/data/predictions_may2026.json').then(res => res.json()).catch(() => null),
-        fetch('/data/hourly_predictions_may2026.json').then(res => res.json()).catch(() => null),
-        fetch('/data/hospital_surge_predictions_may2026.json').then(res => res.json()).catch(() => null)
+    // 1. Fetch live endpoints with fallback
+    return Promise.all([
+        fetch('/api/predictions/live').then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch('/api/predictions/hourly/live').then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch('/api/surge/live').then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch('/api/weather/current').then(res => res.ok ? res.json() : null).catch(() => null)
     ])
-    .then(([summary, hourlyData, surgeData]) => {
-        if (!summary || !hourlyData) return;
+    .then(([summary, hourlyData, surgeData, weatherData]) => {
+        if (!summary || !hourlyData) {
+            // Secondary fallback to static files
+            return Promise.all([
+                fetch('/data/live_predictions.json').then(r => r.json()).catch(() => fetch('/data/predictions_may2026.json').then(r => r.json())),
+                fetch('/data/live_hourly_forecast.json').then(r => r.json()).catch(() => fetch('/data/hourly_predictions_may2026.json').then(r => r.json())),
+                fetch('/data/live_surge.json').then(r => r.json()).catch(() => fetch('/data/hospital_surge_predictions_may2026.json').then(r => r.json())),
+                fetch('/data/live_weather.json').then(r => r.json()).catch(() => null)
+            ]).then(([s, h, su, w]) => {
+                predictionsSummaryData = s;
+                predictionsRecommendationsData = h;
+                hospitalSurgeData = su;
+                liveWeatherData = w;
+                renderPredictionWidget();
+                initMedicalFacilityMarkers();
+            });
+        }
         predictionsSummaryData = summary;
         predictionsRecommendationsData = hourlyData;
         hospitalSurgeData = surgeData;
+        liveWeatherData = weatherData;
 
         renderPredictionWidget();
         initMedicalFacilityMarkers();
@@ -1558,7 +1723,7 @@ function renderPredictionWidget() {
 
         card.innerHTML = `
             <span style="font-size:15px;">${collapseIcon}</span>
-            <span style="font-size:12px;font-weight:700;color:#0f172a;">${collapseLabel}</span>
+            <span style="font-size:12px;font-weight:700;color:#0f172a;">${collapseLabel} (${formatForecastDate(activePredictionDate)})</span>
             <span style="background:${collapseBadgeBg};color:${collapseBadgeColor};border:1px solid ${badgeBorder};font-weight:800;font-size:10px;padding:2px 7px;border-radius:999px;">
                 ${collapseBadge}
             </span>
@@ -1576,7 +1741,7 @@ function renderPredictionWidget() {
         position: fixed;
         top: 88px;
         right: 16px;
-        width: 345px;
+        width: 350px;
         max-width: calc(100vw - 32px);
         z-index: 30;
         background: rgba(255,255,255,0.98);
@@ -1584,11 +1749,11 @@ function renderPredictionWidget() {
         -webkit-backdrop-filter: blur(24px) saturate(180%);
         border: 1px solid rgba(226,232,240,0.8);
         border-radius: 16px;
-        padding: 15px;
+        padding: 14px;
         color: #0f172a;
         box-shadow: 0 20px 40px -8px rgba(15,23,42,0.16), 0 4px 12px rgba(15,23,42,0.06);
         font-family: 'Plus Jakarta Sans','Inter',sans-serif;
-        max-height: calc(100vh - 110px);
+        max-height: calc(100vh - 105px);
         overflow-y: auto;
     `;
 
@@ -1604,18 +1769,24 @@ function renderPredictionWidget() {
         </div>
     `;
 
-    /* Date tabs */
+    /* Dynamic Date tabs */
+    const todayISOStr = new Date().toISOString().split('T')[0];
     const tabsHTML = availableDates.map(dateStr => {
-        const parts    = dateStr.split('-');
-        const dayLabel = (parts[2] || dateStr) + ' May';
         const isActive = dateStr === activePredictionDate;
+        const isToday = dateStr === todayISOStr;
+        const daySum = predictionsSummaryData[dateStr] || {};
+        const warnClass = daySum.warning ? daySum.warning.class : 'safe';
+        const hasDot = !isActive && warnClass && warnClass !== 'safe';
+        const dotColor = warnClass === 'critical' ? '#dc2626' : '#f59e0b';
+        const dayLabel = isToday ? '\ud83d\udccd Today' : formatForecastDate(dateStr);
         return `<button data-action="date" data-date="${dateStr}" style="
-            flex:1;padding:6px 0;font-size:11px;font-family:inherit;font-weight:700;
+            flex:1;padding:5px 0;font-size:${isToday ? '10.5' : '11'}px;font-family:inherit;font-weight:${isToday ? '800' : '700'};
             border-radius:6px;border:none;cursor:pointer;transition:all 0.15s ease;
             background:${isActive ? (activePredictionTab === 'surge' ? '#0284c7' : '#059669') : 'transparent'};
-            color:${isActive ? '#fff' : '#64748b'};
+            color:${isActive ? '#fff' : (hasDot ? dotColor : '#64748b')};
             ${isActive ? 'box-shadow:0 1px 4px rgba(15,23,42,0.15);' : ''}
-        ">${dayLabel}</button>`;
+            position:relative;
+        ">${dayLabel}${hasDot ? `<span style="position:absolute;top:3px;right:4px;width:5px;height:5px;border-radius:50%;background:${dotColor};display:inline-block;"></span>` : ''}</button>`;
     }).join('');
 
     let tabBodyHTML = '';
@@ -1640,44 +1811,154 @@ function renderPredictionWidget() {
             `<span style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:700;">🟢 ${w}</span>`
         ).join(' ');
 
+        // Manifest entry lookup for activePredictionDate
+        const manifestEntry = (heatZoneManifest && heatZoneManifest.dates)
+            ? heatZoneManifest.dates.find(d => d.date === activePredictionDate)
+            : null;
+        const campusDangerSectors = manifestEntry ? manifestEntry.danger_or_worse_sectors : (isHeatwave ? 'High' : 0);
+        const campusMaxHhsi = (manifestEntry && manifestEntry.hhsi_max_overall) ? `${manifestEntry.hhsi_max_overall}°C` : '--';
+
+        // Early warning
+        const warningObj = summary.warning || {};
+        const warnLevel = warningObj.level || (isHeatwave ? 'Heat Warning' : 'Normal');
+        const warnClass = warningObj.class || (isHeatwave ? 'warning' : 'safe');
+        const warnReasons = warningObj.reasons || ['Standard seasonal conditions'];
+        const confidenceVal = summary.confidence || 'Medium';
+
+        // Atmospheric Advisory
+        const advisoryText = summary.advisory || rec.advisory || null;
+
         tabBodyHTML = `
-            <!-- Date Tabs -->
-            <div style="display:flex;gap:3px;background:#f1f5f9;padding:3px;border-radius:8px;margin-bottom:12px;border:1px solid #e2e8f0;">
+            <!-- NWP Source & Dynamic Date Pill -->
+            <div class="nwp-badge-wrapper">
+                <div class="nwp-source-badge">
+                    <span class="nwp-live-dot"></span> Calibrated NWP Heatwave Model
+                </div>
+                <div style="text-align:right;">
+                    ${summary.seasonal_context ? `<div style="font-size:10px;font-weight:800;color:${summary.monsoon_suppression ? '#0d9488' : '#64748b'};">${summary.seasonal_context}</div>` : ''}
+                    <div style="font-size:9px;color:#94a3b8;font-weight:600;">${formatForecastFullDate(activePredictionDate)}</div>
+                </div>
+            </div>
+
+            <!-- Date Horizon Tabs -->
+            <div style="display:flex;gap:3px;background:#f1f5f9;padding:3px;border-radius:8px;margin-bottom:10px;border:1px solid #e2e8f0;">
                 ${tabsHTML}
             </div>
 
-            <!-- Stats Grid -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;">
-                <div>
-                    <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Heatwave Risk</div>
-                    <div style="font-size:20px;font-weight:800;color:${isHeatwave ? '#dc2626' : '#059669'};margin-top:1px;">${probPct}%</div>
+            <!-- Heatwave Probability & Campus Spatial Risk -->
+            <div class="heatwave-summary-card">
+                <div class="heatwave-metric-col" style="border-right: 1px solid #e2e8f0; padding-right: 8px;">
+                    <div style="font-size:9.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">Heatwave Risk</div>
+                    <div style="font-size:22px;font-weight:800;color:${badgeColor};margin-top:2px;">${probPct}%</div>
+                    <div style="display:inline-flex;align-items:center;margin-top:4px;padding:2px 7px;border-radius:999px;font-size:9.5px;font-weight:800;background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};">
+                        ${summary.prediction || (isHeatwave ? 'HEATWAVE' : 'NO HEATWAVE')}
+                    </div>
                 </div>
-                <div>
-                    <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Unsafe Hours</div>
-                    <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:4px;">${rec.expected_unsafe_duration || '0 hrs'}</div>
+
+                <div class="heatwave-metric-col" style="padding-left: 8px;">
+                    <div style="font-size:9.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">Campus Sector Risk</div>
+                    <div style="font-size:13px;font-weight:800;color:#0f172a;margin-top:2px;">
+                        🏛️ ${campusDangerSectors} <span style="font-size:10px;color:#64748b;font-weight:600;">/ 3,213</span>
+                    </div>
+                    <div style="font-size:10.5px;color:#475569;margin-top:3px;font-weight:600;">
+                        Peak HHSI: <strong style="color:${parseFloat(campusMaxHhsi) >= 46 ? '#dc2626' : '#ea580c'};">${campusMaxHhsi}</strong>
+                    </div>
                 </div>
             </div>
 
+            <!-- Monsoon / Weather Suppression Banner -->
+            ${summary.monsoon_suppression ? `
+            <div style="background:linear-gradient(135deg,#ecfdf5,#f0f9ff);border:1.5px solid #6ee7b7;border-left:4px solid #0d9488;border-radius:8px;padding:9px 12px;margin-bottom:10px;display:flex;gap:8px;align-items:flex-start;">
+                <span style="font-size:16px;flex-shrink:0;line-height:1;">\ud83c\udf27\ufe0f</span>
+                <div>
+                    <div style="font-size:10px;font-weight:800;color:#0f766e;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Monsoon Suppression Active</div>
+                    <div style="font-size:11px;color:#134e4a;line-height:1.45;">${summary.weather_summary || 'High humidity and active rainfall are suppressing heatwave risk. Muggy conditions persist.'}</div>
+                </div>
+            </div>` : (summary.weather_summary ? `
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-left:3px solid #94a3b8;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:#334155;line-height:1.4;">
+                ${summary.weather_summary}
+            </div>` : '')}
+
+            <!-- Rain Probability, Precipitation & Feels-Like Row -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+                <div style="background:${(summary.rain_probability||0) >= 60 ? '#eff6ff' : '#f8fafc'};border:1px solid ${(summary.rain_probability||0) >= 60 ? '#bfdbfe' : '#e2e8f0'};border-radius:8px;padding:7px 8px;text-align:center;">
+                    <div style="font-size:8.5px;color:${(summary.rain_probability||0) >= 60 ? '#1d4ed8' : '#64748b'};font-weight:700;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:3px;">\ud83c\udf27\ufe0f Rain Prob</div>
+                    <div style="font-size:16px;font-weight:800;color:${(summary.rain_probability||0) >= 60 ? '#1e40af' : '#0f172a'};"> ${summary.rain_probability !== undefined ? Math.round(summary.rain_probability) + '%' : '--'}</div>
+                </div>
+                <div style="background:${(summary.precipitation_mm||0) > 10 ? '#f0f9ff' : '#f8fafc'};border:1px solid ${(summary.precipitation_mm||0) > 10 ? '#bae6fd' : '#e2e8f0'};border-radius:8px;padding:7px 8px;text-align:center;">
+                    <div style="font-size:8.5px;color:${(summary.precipitation_mm||0) > 10 ? '#0369a1' : '#64748b'};font-weight:700;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:3px;">\ud83d\udca7 Precip</div>
+                    <div style="font-size:16px;font-weight:800;color:${(summary.precipitation_mm||0) > 10 ? '#0284c7' : '#0f172a'};"> ${summary.precipitation_mm !== undefined ? summary.precipitation_mm + ' mm' : '--'}</div>
+                </div>
+                <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:7px 8px;text-align:center;">
+                    <div style="font-size:8.5px;color:#7c3aed;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:3px;">\ud83c\udf21\ufe0f Feels Like</div>
+                    <div style="font-size:16px;font-weight:800;color:#7c3aed;"> ${summary.apparent_temp_max !== undefined ? summary.apparent_temp_max + '\u00b0C' : '--'}</div>
+                </div>
+            </div>
+
+            <!-- Humidity Discomfort Tag -->
+            ${summary.humidity_discomfort ? `
+            <div style="background:#fefce8;border:1px solid #fef08a;border-radius:6px;padding:5px 10px;margin-bottom:10px;font-size:10.5px;color:#713f12;font-weight:600;display:flex;align-items:center;gap:6px;">
+                <span>\ud83c\udf21\ufe0f Discomfort:</span>
+                <span>${summary.humidity_discomfort}</span>
+            </div>` : ''}
+
+            <!-- Early Warning Box -->
+            <div class="early-warning-box ${warnClass}">
+                <div class="early-warning-title">
+                    <span>🛡️ ${warnLevel}</span>
+                    <span style="font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.75);">${confidenceVal} Confidence</span>
+                </div>
+                <div class="warning-factors-list">
+                    ${warnReasons.map(r => `<span class="warning-factor-tag">${r}</span>`).join('')}
+                </div>
+            </div>
+
+            <!-- Storm / Rain Convective Suppression Advisory Banner -->
+            ${advisoryText ? `
+            <div class="pressure-advisory-banner">
+                <span style="font-size:14px;flex-shrink:0;">⚡</span>
+                <div>
+                    <strong style="color:#0f766e;">Storm / Rain Convective Suppression:</strong><br/>
+                    ${advisoryText}
+                </div>
+            </div>` : ''}
+
             <!-- Danger Window -->
-            <div style="margin-bottom:10px;">
-                <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:3px;text-transform:uppercase;">Peak Danger Window:</div>
-                <div style="color:#991b1b;font-weight:700;background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #dc2626;padding:5px 8px;border-radius:5px;font-size:12px;">
-                    ⚠️ ${rec.danger_window || 'None (Safe Conditions)'}
+            <div style="margin-bottom:10px;background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #dc2626;padding:8px 10px;border-radius:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="color:#991b1b;font-size:10px;font-weight:800;text-transform:uppercase;">Peak Danger Window</span>
+                    <span style="font-size:10px;font-weight:700;color:#dc2626;background:#fee2e2;padding:1px 5px;border-radius:3px;">${rec.expected_unsafe_duration || '0 hrs'}</span>
+                </div>
+                <div style="color:#7f1d1d;font-weight:700;font-size:12px;margin-top:3px;">
+                    ⚠️ ${rec.danger_window || 'None (Safe Thermal Conditions)'}
                 </div>
             </div>
 
             <!-- Safe Windows -->
-            <div style="margin-bottom:12px;">
+            <div style="margin-bottom:10px;">
                 <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:4px;text-transform:uppercase;">Best Outdoor Windows:</div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">${goOutWindows}</div>
             </div>
 
-            <!-- Hourly Timeline -->
+            <!-- Hourly Thermal-Stress Timeline -->
             <div>
-                <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:5px;text-transform:uppercase;">Hourly Safety (08:00–20:00):</div>
+                <div style="color:#64748b;font-size:10px;font-weight:700;margin-bottom:5px;text-transform:uppercase;">Direct Hourly Thermal-Stress (08:00–20:00):</div>
                 <div style="display:flex;justify-content:space-between;background:#f8fafc;padding:8px 10px;border-radius:8px;border:1px solid #e2e8f0;flex-wrap:wrap;gap:4px;">
                     ${hourlyPillsHTML}
                 </div>
+            </div>
+
+            <!-- Interactive NWP Live Controls -->
+            <div class="live-controls-row">
+                <button id="syncTimelineBtnRight" onclick="triggerTimelineSync()" class="live-control-btn" title="Sync live satellite & NWP data to dynamically expand daily heat risk mapping">
+                    🔄 Sync Satellite Data
+                </button>
+                <button id="liveRefreshBtn" onclick="triggerLiveNwpRefresh(false)" class="live-control-btn" title="Re-query Open-Meteo ECMWF NWP forecast and run V2 model">
+                    ⚡ Run Live NWP
+                </button>
+                <button id="stormTestBtn" onclick="triggerLiveNwpRefresh(true)" class="live-control-btn storm-test" title="Simulate low-pressure storm scenario with rain suppression">
+                    ⛈️ Test Storm
+                </button>
             </div>
         `;
     } 
@@ -1836,20 +2117,40 @@ function renderPredictionWidget() {
                     ${tabsHTML}
                 </div>
 
-                <!-- Alert Level Banner -->
+                <!-- Alert Level Banner with Planning Interval -->
                 <div class="surge-alert-banner" style="background:${bannerBg};border:1px solid ${bannerBorder};color:${bannerColor};">
                     <div>
                         <span style="font-size:13px;">${isRedAlert ? '🔴' : isOrangeAlert ? '🟠' : '🟡'}</span>
                         <span style="font-weight:800;margin-left:4px;">${surge.alert_level}</span>
                     </div>
-                    <span style="background:${surge.alert_color};color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;">
-                        +${surge.surge_percent}% Surge
-                    </span>
+                    <div style="text-align:right;">
+                        <span style="background:${surge.alert_color};color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;display:inline-block;">
+                            +${surge.surge_percent}% Surge
+                        </span>
+                        ${surge.planning_range_percent ? `
+                        <div style="font-size:8.5px;font-weight:600;color:${bannerColor};margin-top:2px;">
+                            Range: ${surge.planning_range_percent[0]}%–${surge.planning_range_percent[1]}%
+                        </div>` : ''}
+                    </div>
                 </div>
 
+                <!-- Facility Capacity Pressure & Action Trigger Box -->
+                ${facData.capacity_action_command ? `
+                <div style="margin-bottom:8px;padding:6px 9px;border-radius:6px;background:${facData.capacity_pressure_ratio >= 0.75 ? '#fef2f2' : facData.capacity_pressure_ratio >= 0.20 ? '#fffbeb' : '#f0fdf4'};border:1px solid ${facData.capacity_pressure_ratio >= 0.75 ? '#fca5a5' : facData.capacity_pressure_ratio >= 0.20 ? '#fde68a' : '#bbf7d0'};color:#0f172a;line-height:1.35;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;font-weight:700;margin-bottom:2px;">
+                        <span>🏥 Bed Saturation Pressure:</span>
+                        <span style="color:${facData.capacity_pressure_ratio >= 0.75 ? '#dc2626' : '#0369a1'};font-weight:800;">
+                            ${(facData.capacity_pressure_ratio * 100).toFixed(0)}% of Beds (+${facData.excess_emergency_patients}/${facData.capacity_beds})
+                        </span>
+                    </div>
+                    <div style="font-size:9px;color:#334155;">
+                        ${facData.capacity_action_command}
+                    </div>
+                </div>` : ''}
+
                 <!-- Clinical Advisory Notice -->
-                <div style="font-size:10.5px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;padding:7px 9px;border-radius:6px;margin-bottom:10px;line-height:1.4;">
-                    <span style="font-weight:700;color:#0f172a;">Guideline Protocol:</span> ${surge.clinical_advisory}
+                <div style="font-size:10px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;padding:6px 8px;border-radius:6px;margin-bottom:10px;line-height:1.35;">
+                    <span style="font-weight:700;color:#0f172a;">Operational Protocol:</span> ${surge.clinical_advisory}
                 </div>
 
                 <!-- Metrics Grid: Emergency & OPD -->
@@ -1932,6 +2233,33 @@ function renderPredictionWidget() {
                     </div>
                 </div>
 
+                <!-- Diurnal Casualty Arrival Waves & Nursing Shift Accordion -->
+                ${facData.diurnal_casualty_arrival_waves ? `
+                <div style="margin-top:6px;">
+                    <button data-action="toggle-diurnal" style="
+                        width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;
+                        padding:6px 10px;font-size:10.5px;font-weight:700;color:#0369a1;
+                        display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+                    ">
+                        <span>🕒 Diurnal Casualty Influx & Shift Staffing</span>
+                        <span>${showSurgeDiurnal ? '▲' : '▼'}</span>
+                    </button>
+                    ${showSurgeDiurnal ? `
+                        <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 6px 6px;padding:8px;font-size:9.5px;">
+                            ${Object.entries(facData.diurnal_casualty_arrival_waves).map(([k, wave]) => `
+                                <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px dashed #e2e8f0;">
+                                    <div style="display:flex;justify-content:space-between;font-weight:700;color:#0f172a;">
+                                        <span>⏰ ${wave.time_window}</span>
+                                        <span style="color:#b91c1c;">~${wave.expected_excess_cases} Cases (${wave.share_percent}%)</span>
+                                    </div>
+                                    <div style="color:#64748b;font-size:9px;margin-top:1px;">${wave.clinical_mechanism}</div>
+                                    <div style="color:#0369a1;font-weight:600;font-size:9px;margin-top:2px;">👨‍⚕️ <em>${wave.shift_recommendation}</em></div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>` : ''}
+
                 <!-- Scientific Evidence & Guidelines Accordion -->
                 <div style="margin-top:6px;">
                     <button data-action="toggle-citations" style="
@@ -2002,6 +2330,9 @@ function renderPredictionWidget() {
             renderPredictionWidget();
         } else if (action === 'date') {
             activePredictionDate = btn.dataset.date;
+            if (typeof switchHeatZoneDate === 'function') {
+                switchHeatZoneDate(activePredictionDate);
+            }
             renderPredictionWidget();
         } else if (action === 'facility') {
             activeSurgeFacility = btn.dataset.facility;
@@ -2009,6 +2340,9 @@ function renderPredictionWidget() {
             focusFacilityOnMap(activeSurgeFacility, true);
         } else if (action === 'toggle-citations') {
             showSurgeCitations = !showSurgeCitations;
+            renderPredictionWidget();
+        } else if (action === 'toggle-diurnal') {
+            showSurgeDiurnal = !showSurgeDiurnal;
             renderPredictionWidget();
         }
     };
@@ -2245,4 +2579,4 @@ function fallbackCopy(text) {
         showMessage('Could not copy to clipboard.');
     }
     document.body.removeChild(textarea);
-}
+}

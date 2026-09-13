@@ -394,10 +394,10 @@
               <div class="glossary-card">
                 <span class="glossary-icon">🚶</span>
                 <span class="glossary-term" style="color:#e11d48;">Pedestrian Exposure</span>
-                <span class="glossary-plain">LST × (1 - NDVI)</span>
-                <div class="glossary-def">Walking heat stress combining hot unshaded ground with lack of tree canopy. Rated High, Medium, or Low.</div>
-                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('pedestrian_harlan')">
-                  📚 Ref: Harlan et al. (2006) · Rouse (1974)
+                <span class="glossary-plain">LST_norm × (1 - NDVI_norm)</span>
+                <div class="glossary-def">Walking heat stress combining hot unshaded ground with lack of tree canopy. Rated High, Medium, or Low. Formulated in-house from scientific first principles.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('team_pedestrian_exposure')">
+                  💡 Team In-House Scientific Formulation
                 </button>
               </div>
 
@@ -405,9 +405,9 @@
                 <span class="glossary-icon">🌡️</span>
                 <span class="glossary-term" style="color:#dc2626;">Ground Heat</span>
                 <span class="glossary-plain">LST (technical name)</span>
-                <div class="glossary-def">How hot the actual ground surface is in °C — measured via high-resolution thermal infrared sensors.</div>
+                <div class="glossary-def">How hot the actual ground surface is in °C — measured from standard 30m × 30m (900 m² pixel) Landsat satellite imagery via Google Earth Engine.</div>
                 <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('landsat9_tirs2')">
-                  🛰️ Ref: USGS / NASA Landsat 9 TIRS-2 (2022)
+                  🛰️ Landsat 900 m² (USGS/NASA)
                 </button>
               </div>
 
@@ -415,9 +415,9 @@
                 <span class="glossary-icon">🌿</span>
                 <span class="glossary-term" style="color:#059669;">Green Canopy Score</span>
                 <span class="glossary-plain">NDVI (technical name)</span>
-                <div class="glossary-def">How much healthy, cooling plant cover exists. High = thick shade canopy. Low = bare exposed ground.</div>
-                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('ndvi_rouse')">
-                  🌿 Ref: Rouse et al. (1974) · NASA GSFC
+                <div class="glossary-def">How much cooling plant cover exists. Derived automatically via Google Earth Engine and verified through physical on-site campus visits.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('gee_automated_indices')">
+                  🌿 GEE Automated NDVI + Field Inspection
                 </button>
               </div>
 
@@ -425,9 +425,9 @@
                 <span class="glossary-icon">🏗️</span>
                 <span class="glossary-term" style="color:#475569;">Concrete & Rooftops</span>
                 <span class="glossary-plain">NDBI (technical name)</span>
-                <div class="glossary-def">Buildings, roads, and concrete surfaces that absorb heat during the day and release it at night.</div>
-                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('ndbi_zha')">
-                  🏗️ Ref: Zha, Gao & Ni (2003) · IJRS
+                <div class="glossary-def">Buildings, walkways, and asphalt surfaces that absorb daytime heat and release it at night. Derived automatically in Google Earth Engine.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('gee_automated_indices')">
+                  🏗️ Automated GEE Satellite Product
                 </button>
               </div>
 
@@ -435,9 +435,9 @@
                 <span class="glossary-icon">🌱</span>
                 <span class="glossary-term" style="color:#d97706;">Bare Soil Exposure</span>
                 <span class="glossary-plain">BSI (technical name)</span>
-                <div class="glossary-def">Unplanted dry soil patches baking in direct sunlight — the hottest zones on campus.</div>
-                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('bsi_rikimaru')">
-                  🌱 Ref: Rikimaru, Roy & Miyatake (2002)
+                <div class="glossary-def">Unplanted dry soil patches baking in direct sunlight — high ground heat with zero evaporative cooling. Computed automatically in GEE.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('gee_automated_indices')">
+                  🌱 Automated GEE Satellite Product
                 </button>
               </div>
 
@@ -445,9 +445,9 @@
                 <span class="glossary-icon">💧</span>
                 <span class="glossary-term" style="color:#0284c7;">Moisture Level</span>
                 <span class="glossary-plain">NDWI (technical name)</span>
-                <div class="glossary-def">How much water is present in plants and soil. Moist areas stay cooler.</div>
-                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('ndwi_gao')">
-                  💧 Ref: Gao (1996) · Remote Sens. Environ.
+                <div class="glossary-def">How much water is present in plants and ground. Moist ground stays cooler. Derived automatically via Google Earth Engine.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('gee_automated_indices')">
+                  💧 Automated GEE Satellite Product
                 </button>
               </div>
 
@@ -455,9 +455,9 @@
                 <span class="glossary-icon">🌳</span>
                 <span class="glossary-term" style="color:#15803d;">Tree Cover %</span>
                 <span class="glossary-plain">Veg% (technical name)</span>
-                <div class="glossary-def">The percentage of that ground patch that's actually covered by leaves and shade.</div>
-                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('ndvi_rouse')">
-                  🌳 Ref: Landsat Fractional Vegetation Cover
+                <div class="glossary-def">Percentage of ground covered by cooling leaves and shade. Predicted across all 1,323 campus points by our ExtraTreesRegressor ML model.</div>
+                <button type="button" class="glossary-cite-btn" onclick="openCitationsModal('extratrees_vegetation_model')">
+                  🌳 ExtraTreesRegressor (train_final_model.py)
                 </button>
               </div>
 
@@ -478,12 +478,23 @@
             <p class="sidebar-subtitle" style="margin-bottom: 14px;">These coloured zones show where students face the most heat risk — combining air temperature, humidity, and how many people walk through each area.</p>
 
             <!-- Timeline Date Picker -->
-            <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; background: var(--panel-subtle); padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-md);">
+            <div style="margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; background: var(--panel-subtle); padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-md);">
               <span style="font-size: 12px; color: var(--text); font-weight: 700; display:flex; align-items:center; gap:6px;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                Forecast Date:
+                Active Date:
               </span>
               <div id="datePickerContainer"></div>
+            </div>
+
+            <!-- Dynamic Satellite Sync Status & Action -->
+            <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 7px 12px; border-radius: var(--radius-md);">
+              <div style="font-size: 11px; color: #166534; font-weight: 700; display:flex; align-items:center; gap:6px;">
+                <span style="width:7px; height:7px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+                <span>Automated Satellite Feed</span>
+              </div>
+              <button id="syncTimelineBtn" onclick="triggerTimelineSync()" style="font-size:10.5px; font-weight:700; background:#ffffff; color:#15803d; border:1px solid #86efac; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:4px; font-family:inherit;" title="Fetch latest satellite reanalysis and NWP forecasts dynamically via Open-Meteo">
+                <span>🔄</span> Sync Data
+              </button>
             </div>
 
             <!-- Dynamic Legend -->
@@ -765,12 +776,11 @@
                 <span class="heat-formula-code">LST_norm × (1 - NDVI_norm)</span>
               </div>
               <div class="heat-formula-desc">
-                Physical outdoor walking heat stress rated into <strong>High</strong>, <strong>Medium</strong>, and <strong>Low</strong> terciles. High ground surface temperature combined with a lack of tree canopy shade yields the highest exposure.
+                Physical outdoor walking heat stress rated into <strong>High</strong>, <strong>Medium</strong>, and <strong>Low</strong> terciles. Formulated from biometeorological first principles: hot unshaded ground underfoot (Landsat LST, 900 m² pixel) magnified by the absence of tree canopy overhead (1 - NDVI).
               </div>
               <div class="formula-cite-row">
-                <span class="formula-cite-label">Primary Citations:</span>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('pedestrian_harlan')">📖 Harlan et al. (2006) [DOI]</button>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('ndvi_rouse')">🛰️ Rouse et al. / NASA (1974)</button>
+                <span class="formula-cite-label">Formulation & Grounding:</span>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('team_pedestrian_exposure')">💡 Team Pipeline Pilots (First-Principles Formula)</button>
               </div>
             </div>
 
@@ -781,12 +791,12 @@
                 <span class="heat-formula-code">HI_IMD × [1 + (0.30 × VI)]</span>
               </div>
               <div class="heat-formula-desc">
-                Scales the base IMD heat index by up to +30% based on local vulnerability. Dense, unshaded sectors with higher vulnerable populations receive the greatest risk amplification.
+                Combines official India Meteorological Department (IMD) 5-tier danger thresholds with local demographic vulnerability—giving highest risk amplification to areas with infants (&lt;6 yrs) and elderly citizens (&gt;60 yrs).
               </div>
               <div class="formula-cite-row">
-                <span class="formula-cite-label">Primary Citations:</span>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('rothfusz_noaa')">🌡️ Rothfusz / NOAA (1990)</button>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('imd_heatwave_standards')">🇮🇳 IMD Heat SOP (2023)</button>
+                <span class="formula-cite-label">Primary Standards:</span>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('imd_heatwave_standards')">🇮🇳 IMD 5-Tier Danger SOP (2023)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('team_vulnerability_index')">👥 Vulnerable Demographics (&lt;6y &amp; &gt;60y)</button>
               </div>
             </div>
 
@@ -794,14 +804,14 @@
             <div class="heat-formula-card">
               <div class="heat-formula-header">
                 <span class="heat-formula-name">👥 Vulnerability Index (VI)</span>
-                <span class="heat-formula-code">45.5% Pop + 36.4% Fac + 18.1% Veg</span>
+                <span class="heat-formula-code">45.5% PopRisk + 36.4% FacilityDist + 18.1% CanopyDeficit</span>
               </div>
               <div class="heat-formula-desc">
-                Composite vulnerability combining age-vulnerable population density (children & seniors), proximity to schools and hospitals, and vegetative canopy deficit across the 3 km² study zone.
+                Formulated in-house by Team Pipeline Pilots to assess neighborhood vulnerability across the 3 km² study zone. Combines three evidence-based pillars: high-risk age demographics (children &lt;6 and seniors &gt;60), distance to emergency hospitals/schools, and tree shade deficit.
               </div>
               <div class="formula-cite-row">
-                <span class="formula-cite-label">Primary Citation:</span>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('vulnerability_wilhelmi')">📖 Wilhelmi & Hayden (2010) [DOI]</button>
+                <span class="formula-cite-label">Formulation & Grounding:</span>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('team_vulnerability_index')">💡 Team Pipeline Pilots (In-House Formula)</button>
               </div>
             </div>
 
@@ -812,47 +822,52 @@
                 <span class="heat-formula-code">Rothfusz(Air Temp, RH)</span>
               </div>
               <div class="heat-formula-desc">
-                Standard meteorological apparent heat index calculating human physiological heat strain from ambient air temperature and relative humidity.
+                Standard apparent temperature formula calculating physiological strain from ambient air temperature and relative humidity (from NASA POWER MERRA-2 satellite data). Categorized into 5 official IMD danger levels.
               </div>
               <div class="formula-cite-row">
                 <span class="formula-cite-label">Primary Citations:</span>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('rothfusz_noaa')">🌡️ Rothfusz (1990) NWS SR 90-23</button>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('imd_heatwave_standards')">🇮🇳 IMD Alert Thresholds</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('rothfusz_noaa')">🌡️ Rothfusz / NOAA (1990)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('imd_heatwave_standards')">🇮🇳 IMD 5-Tier Classification</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('nasa_power_merra2')">☀️ NASA POWER MERRA-2</button>
               </div>
             </div>
 
-            <!-- Formula 5: Campus Hotspot Priority -->
+            <!-- Formula 5: Campus Hotspot Priority & Vegetation Fraction ML Model -->
             <div class="heat-formula-card">
               <div class="heat-formula-header">
-                <span class="heat-formula-name">🎯 Intervention Priority (0–100)</span>
-                <span class="heat-formula-code">Multi-Criteria Urgency</span>
+                <span class="heat-formula-name">🎯 Intervention Priority Engine (0–100)</span>
+                <span class="heat-formula-code">35% VegDeficit + 30% LST + 15% BSI + 10% NDBI + 10% NDWI</span>
               </div>
               <div class="heat-formula-desc">
-                Ranks campus cooling hotspots for the Action Plan using peak ground heat (Landsat 9), concrete density (NDBI), shade deficiency (NDVI), and pedestrian walkways.
+                Our <strong>ExtraTreesRegressor</strong> ensemble ML model (<code>train_final_model.py</code>) calculates continuous vegetation fraction across all 1,323 SOA campus sample points from satellite indices. The <strong>Priority Engine</strong> (<code>priority_engine.py</code>) then weights vegetation deficit at 35%, combined with peak ground heat (Landsat 900 m² LST) and bare soil, and spatially intersects with walkways to place tree planting nodes and misting sprayers.
               </div>
               <div class="formula-cite-row">
-                <span class="formula-cite-label">Primary Citations:</span>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('ndbi_zha')">🏗️ Zha et al. (2003) [NDBI]</button>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('landsat9_tirs2')">🛰️ Landsat 9 TIRS-2 (2022)</button>
+                <span class="formula-cite-label">Primary ML & Spatial Pipeline:</span>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('extratrees_vegetation_model')">🌲 ExtraTreesRegressor (train_final_model.py)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('landsat9_tirs2')">🛰️ Landsat 900 m² Resolution</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('osm_campus_survey')">🗺️ Team On-Site Ground Survey</button>
               </div>
             </div>
 
-            <!-- Formula 6: Hospital Patient Surge Model -->
+            <!-- Formula 6: Hospital Patient Surge & Readiness Model -->
             <div class="heat-formula-card" style="border-left: 3px solid #0284c7;">
               <div class="heat-formula-header">
-                <span class="heat-formula-name">🏥 Hospital Patient Surge Model</span>
-                <span class="heat-formula-code">Y_t = Y_0 × [1 + (P_hw × β_alert × C_lag)]</span>
+                <span class="heat-formula-name">🏥 Hospital Patient Surge & Readiness Model</span>
+                <span class="heat-formula-code">Y_t = Y_0 × [1 + (P_hw × β_alert × C_lag × Exposure_mult)]</span>
               </div>
               <div class="heat-formula-desc">
-                Predicts casualty admissions and outpatient footfall during heatwave days for study area facilities (Student Health Centre, Jagamara UPHC, Astang Ayurveda, and IMS & SUM Hospital). Quantifies syndromic cases (sunstroke, cardiovascular, AKI) and readiness needs (HSU beds, IV fluids).
+                Epidemiology-grounded decision support model forecasting emergency admission spikes, OPD volume, Heat Stroke Unit (HSU) bed needs, and IV fluids for 4 facilities (SOA Student Health Centre, Jagamara UPHC, Astang Ayurveda, and IMS &amp; SUM Hospital). Includes diurnal casualty waves and bed saturation triggers.
+                <div style="margin-top:6px;font-size:11.5px;color:#0369a1;background:#f0f9ff;padding:6px 9px;border-radius:5px;border-left:2.5px solid #0284c7;">
+                  <strong>✓ How Is This Grounded?</strong> (1) Facility baselines use public institutional capacities (IMS &amp; SUM Hospital 1,750 beds, UPHC 15 beds, Student Clinic 8 beds) and standard operational estimates, without confidential internal hospital records; (2) Surge multipliers and resource requirements (20% HSU beds, 3.5L fluids) are calculated directly from Government of India NCDC NAP-HRI benchmarks, AIIMS emergency protocols, and WHO guidelines for transparent public health scenario planning.
+                </div>
               </div>
               <div class="formula-cite-row">
                 <span class="formula-cite-label">Primary Citations:</span>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('who_heat_guidance')">🏥 WHO (2024)</button>
                 <button type="button" class="formula-cite-pill" onclick="openCitationsModal('ncdc_nap_hri')">🇮🇳 NCDC NAP-HRI (2024)</button>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('aiims_clinical_protocols')">🩺 AIIMS (2023)</button>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('phung_meta_analysis')">📊 Phung (2016)</button>
-                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('bobb_cumulative_lag')">📈 Bobb (2014)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('aiims_clinical_protocols')">🩺 AIIMS Emergency Protocols (2023)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('who_heat_guidance')">🏥 WHO (2024)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('phung_meta_analysis')">📊 Phung et al. (2016)</button>
+                <button type="button" class="formula-cite-pill" onclick="openCitationsModal('bobb_cumulative_lag')">📈 Bobb et al. (2014)</button>
               </div>
             </div>
 
@@ -860,7 +875,7 @@
             <button type="button" onclick="openCitationsModal('all')" class="citations-open-full-btn">
               <span style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:16px;">📚</span>
-                <span>Browse Full Scientific Bibliography & Official DOIs (16 Citations)</span>
+                <span>Browse Full Scientific Documentation & Citations (16 Sources)</span>
               </span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </button>
@@ -906,7 +921,7 @@
 
           <div class="citations-modal-footer">
             <div style="font-size:11.5px;color:#64748b;">
-              Showing <strong id="citationsCountLabel" style="color:#0f172a;">16</strong> peer-reviewed & institutional references.
+              Showing <strong id="citationsCountLabel" style="color:#0f172a;">16</strong> scientific & institutional sources.
             </div>
             <button id="closeCitationsFooterBtn" type="button" class="btn-secondary" style="padding:8px 18px;font-size:12px;font-weight:700;">
               Close Directory

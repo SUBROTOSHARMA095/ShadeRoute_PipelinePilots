@@ -1,0 +1,285 @@
+"""
+expand_heat_risk_timeline.py
+============================
+Expands ShadeRoute's heat risk mapping from simulated 12th May 2026
+up to actual today/yesterday, plus the next 3-day forecast window.
+
+Uses the EXACT SAME mathematical formulation, sector grid (30m x 30m),
+vulnerability weights, and hazard thresholds as `ml/heat_risk_model.py`:
+- IMD Heat Index equation: HI_IMD
+- Human Heat Stress Index: HHSI = HI_IMD * (1 + 0.30 * vulnerability_index)
+- IMD 5-Tier Hazard Classification (Normal, Caution, Extreme Caution, Danger, Extreme Danger)
+- Overall Risk Mapping (Low, Moderate, High, Critical)
+
+Automates meteorological data fetching dynamically from Open-Meteo Archive & Forecast APIs
+so manual CSV maintenance is never required.
+"""
+
+import json
+import time
+import requests
+import numpy as np
+import pandas as pd
+from pathlib import Path
+from datetime import datetime, timezone, timedelta
+
+# Paths
+BASE_DIR = Path(__file__).resolve().parent.parent
+PUBLIC_DATA_DIR = BASE_DIR / "public" / "data"
+TIMELINE_DIR = PUBLIC_DATA_DIR / "timeline"
+MANIFEST_PATH = TIMELINE_DIR / "manifest.json"
+TEMPLATE_GEOJSON_PATH = TIMELINE_DIR / "heat_risk_zones_2026-05-12.geojson"
+
+# Coordinates: SOA ITER Campus / Bhubaneswar
+LATITUDE = 20.25
+LONGITUDE = 85.80
+HHSI_MAX_BOOST = 0.30
+
+# IMD 5-Tier Hazard Classification (exact match with heat_risk_model.py)
+def classify_heat_hazard(hi: float) -> str:
+    if hi >= 55.0:
+        return "Extreme Danger"
+    elif hi >= 46.0:
+        return "Danger"
+    elif hi >= 41.0:
+        return "Extreme Caution"
+    elif hi >= 35.0:
+        return "Caution"
+    else:
+        return "Normal / Safe"
+
+_OVERALL_RISK_MAP = {
+    "Extreme Danger": ("Critical", "🔴"),
+    "Danger": ("High", "🟠"),
+    "Extreme Caution": ("Moderate", "🟡"),
+    "Caution": ("Moderate", "🟡"),
+    "Normal / Safe": ("Low", "🟢"),
+}
+
+
+def calculate_imd_heat_index(temp_c: np.ndarray, rh: np.ndarray) -> np.ndarray:
+    """Exact IMD heat index polynomial used in ml/heat_risk_model.py."""
+    hi = (
+        -8.784695
+        + 1.61139411 * temp_c
+        + 2.33854900 * rh
+        - 0.14611605 * temp_c * rh
+        - 0.012308094 * (temp_c ** 2)
+        - 0.016424828 * (rh ** 2)
+        + 0.002211732 * (temp_c ** 2) * rh
+        + 0.00072546 * temp_c * (rh ** 2)
+        - 0.000003582 * (temp_c ** 2) * (rh ** 2)
+    )
+    return np.round(hi, 2)
+
+
+def fetch_dynamic_weather(start_date: str, yesterday_date: str, forecast_end_date: str) -> pd.DataFrame:
+    """Fetches historical archive data up to yesterday, and live forecast for next 3 days."""
+    print(f"[FETCH] Ingesting archive weather from {start_date} to {yesterday_date}...")
+    
+    # 1. Historical Archive
+    archive_url = (
+        f"https://archive-api.open-meteo.com/v1/archive"
+        f"?latitude={LATITUDE}&longitude={LONGITUDE}"
+        f"&start_date={start_date}&end_date={yesterday_date}"
+        f"&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,direct_normal_irradiance"
+        f"&timezone=auto"
+    )
+    r_arch = requests.get(archive_url, timeout=30)
+    r_arch.raise_for_status()
+    d_arch = r_arch.json().get("hourly", {})
+    df_arch = pd.DataFrame(d_arch)
+
+    # 2. Live Forecast for Today + Next 2-3 Days
+    print(f"[FETCH] Ingesting live forecast from Open-Meteo for next 3 days...")
+    forecast_url = (
+        f"https://api.open-meteo.com/v1/forecast"
+        f"?latitude={LATITUDE}&longitude={LONGITUDE}"
+        f"&forecast_days=4"
+        f"&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,direct_normal_irradiance"
+        f"&timezone=auto"
+    )
+    r_fore = requests.get(forecast_url, timeout=15)
+    r_fore.raise_for_status()
+    d_fore = r_fore.json().get("hourly", {})
+    df_fore = pd.DataFrame(d_fore)
+
+    # Combine & harmonize
+    df_all = pd.concat([df_arch, df_fore], ignore_index=True)
+    df_all["time"] = pd.to_datetime(df_all["time"])
+    df_all = df_all.drop_duplicates(subset=["time"]).sort_values("time").reset_index(drop=True)
+
+    df_all = df_all.rename(columns={
+        "temperature_2m": "air_temp",
+        "relative_humidity_2m": "rel_humidity",
+        "wind_speed_10m": "wind_speed",
+        "direct_normal_irradiance": "solar_rad_W_m2"
+    })
+
+    # Compute hourly IMD Heat Index
+    df_all["HI_IMD"] = calculate_imd_heat_index(df_all["air_temp"].values, df_all["rel_humidity"].values)
+    df_all["date"] = df_all["time"].dt.date
+    return df_all
+
+
+def run_timeline_expansion():
+    """Main expansion routine."""
+    if not TEMPLATE_GEOJSON_PATH.exists():
+        raise FileNotFoundError(f"Template GeoJSON not found at {TEMPLATE_GEOJSON_PATH}")
+
+    if not MANIFEST_PATH.exists():
+        raise FileNotFoundError(f"Manifest not found at {MANIFEST_PATH}")
+
+    with open(MANIFEST_PATH, "r") as f:
+        manifest = json.load(f)
+
+    existing_dates = set(entry["date"] for entry in manifest.get("dates", []))
+    print(f"[TIMELINE] Currently {len(existing_dates)} dates registered in manifest (last: {max(existing_dates)}).")
+
+    # Load 3,213 sector template
+    print(f"[TEMPLATE] Loading sector spatial properties from {TEMPLATE_GEOJSON_PATH.name}...")
+    with open(TEMPLATE_GEOJSON_PATH, "r", encoding="utf-8") as f:
+        template_data = json.load(f)
+
+    features_template = template_data["features"]
+    n_sectors = len(features_template)
+    print(f"[TEMPLATE] Loaded {n_sectors} sectors with static LST, NDVI, and Vulnerability Indices.")
+
+    # Cache sector vulnerability indices and static properties
+    vulnerability_indices = np.array([
+        f["properties"].get("vulnerability_index", 0.25) for f in features_template
+    ], dtype=float)
+
+    # Dates to fetch
+    start_fetch_date = "2026-05-13"
+    # System local date
+    now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    today_str = now.strftime("%Y-%m-%d")
+    yesterday_str = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    forecast_end_str = (now + timedelta(days=3)).strftime("%Y-%m-%d")
+
+    weather_df = fetch_dynamic_weather(start_fetch_date, yesterday_str, forecast_end_str)
+    weather_df["date_str"] = weather_df["date"].astype(str)
+
+    target_dates = sorted(weather_df["date_str"].unique())
+    print(f"[PROCESS] Generating heat risk maps for {len(target_dates)} dates ({target_dates[0]} to {target_dates[-1]})...")
+
+    new_manifest_entries = []
+    generated_count = 0
+
+    t_start = time.time()
+    for date_str in target_dates:
+        day_path = TIMELINE_DIR / f"heat_risk_zones_{date_str}.geojson"
+        
+        # Check if already generated
+        if date_str in existing_dates and day_path.exists():
+            continue
+
+        day_weather = weather_df[weather_df["date_str"] == date_str]
+        if len(day_weather) == 0:
+            continue
+
+        # Daily weather statistics
+        t_mean = round(float(day_weather["air_temp"].mean()), 2)
+        rh_mean = round(float(day_weather["rel_humidity"].mean()), 2)
+        ws_mean = round(float(day_weather["wind_speed"].mean()), 2)
+        sol_mean = round(float(day_weather["solar_rad_W_m2"].mean()), 1)
+
+        hi_vals = day_weather["HI_IMD"].values
+        hi_imd_mean = round(float(np.mean(hi_vals)), 2)
+        hi_imd_max = round(float(np.max(hi_vals)), 2)
+        day_risk_class = classify_heat_hazard(hi_imd_max)
+
+        # Per-sector HHSI calculations (vectorized for speed)
+        hhsi_means = np.round(hi_imd_mean * (1.0 + HHSI_MAX_BOOST * vulnerability_indices), 2)
+        hhsi_maxs = np.round(hi_imd_max * (1.0 + HHSI_MAX_BOOST * vulnerability_indices), 2)
+
+        # Update features
+        new_features = []
+        danger_sectors_count = 0
+        max_hhsi_overall = float(np.max(hhsi_maxs))
+
+        for idx, feat in enumerate(features_template):
+            props = dict(feat["properties"])
+            h_mean = float(hhsi_means[idx])
+            h_max = float(hhsi_maxs[idx])
+            h_class = classify_heat_hazard(h_max)
+            ov_risk, ov_emoji = _OVERALL_RISK_MAP[h_class]
+
+            if h_class in ["Danger", "Extreme Danger"]:
+                danger_sectors_count += 1
+
+            props["air_temp"] = t_mean
+            props["rel_humidity"] = rh_mean
+            props["wind_speed"] = ws_mean
+            props["solar_rad_W_m2"] = sol_mean
+            props["HI_IMD_mean"] = hi_imd_mean
+            props["HI_IMD"] = hi_imd_max
+            props["HHSI_mean"] = h_mean
+            props["HHSI_max"] = h_max
+            props["risk_class"] = day_risk_class
+            props["hhsi_class"] = h_class
+            props["overall_risk"] = ov_risk
+            props["overall_risk_emoji"] = ov_emoji
+
+            new_features.append({
+                "type": "Feature",
+                "properties": props,
+                "geometry": feat["geometry"]
+            })
+
+        out_geojson = {
+            "type": "FeatureCollection",
+            "name": f"heat_risk_zones_{date_str}",
+            "crs": template_data.get("crs"),
+            "features": new_features
+        }
+
+        with open(day_path, "w", encoding="utf-8") as f:
+            json.dump(out_geojson, f)
+
+        manifest_entry = {
+            "date": date_str,
+            "file": f"timeline/heat_risk_zones_{date_str}.geojson",
+            "hhsi_max_overall": max_hhsi_overall,
+            "danger_or_worse_sectors": danger_sectors_count
+        }
+
+        # Append or replace in manifest
+        existing_idx = next((i for i, d in enumerate(manifest["dates"]) if d["date"] == date_str), None)
+        if existing_idx is not None:
+            manifest["dates"][existing_idx] = manifest_entry
+        else:
+            manifest["dates"].append(manifest_entry)
+
+        generated_count += 1
+        if generated_count % 15 == 0 or date_str == target_dates[-1]:
+            print(f"  [+] Generated {date_str} (HHSI Max: {max_hhsi_overall}°C, Danger Sectors: {danger_sectors_count})")
+
+    # Sort manifest chronologically
+    manifest["dates"] = sorted(manifest["dates"], key=lambda x: x["date"])
+    
+    # Set "today" in manifest to actual yesterday/today
+    manifest["today"] = yesterday_str if yesterday_str in [d["date"] for d in manifest["dates"]] else target_dates[-1]
+
+    with open(MANIFEST_PATH, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+
+    # Alias latest today GeoJSON to public/data/heat_risk_zones.geojson
+    today_file = TIMELINE_DIR / f"heat_risk_zones_{manifest['today']}.geojson"
+    if today_file.exists():
+        with open(today_file, "r", encoding="utf-8") as f_in, open(PUBLIC_DATA_DIR / "heat_risk_zones.geojson", "w", encoding="utf-8") as f_out:
+            f_out.write(f_in.read())
+        print(f"[OK] Aliased {manifest['today']} to public/data/heat_risk_zones.geojson")
+
+    elapsed = round(time.time() - t_start, 2)
+    print("=" * 80)
+    print(f"[COMPLETE] Heat risk mapping expanded successfully in {elapsed}s!")
+    print(f"           New Total Dates: {len(manifest['dates'])} (from {manifest['dates'][0]['date']} to {manifest['dates'][-1]['date']})")
+    print(f"           Active 'Today' in digital twin: {manifest['today']}")
+    print("=" * 80)
+    return manifest
+
+
+if __name__ == "__main__":
+    run_timeline_expansion()
