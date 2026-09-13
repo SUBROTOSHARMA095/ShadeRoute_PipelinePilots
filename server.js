@@ -260,4 +260,12 @@ app.post('/api/timeline/sync', async (req, res) => {
 
 app.listen(3000, () => {
     console.log('Server is running on http://localhost:3000');
+    // Check and refresh predictions, patient surge, and spatial zones on startup if stale
+    setTimeout(() => {
+        autoRefreshCacheIfStale();
+    }, 2000);
+    // Recurring hourly check to keep live NWP, patient surge, and spatial zones renewed every day
+    setInterval(() => {
+        autoRefreshCacheIfStale();
+    }, 60 * 60 * 1000);
 });

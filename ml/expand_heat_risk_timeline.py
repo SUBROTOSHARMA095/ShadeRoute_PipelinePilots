@@ -171,8 +171,9 @@ def run_timeline_expansion():
     for date_str in target_dates:
         day_path = TIMELINE_DIR / f"heat_risk_zones_{date_str}.geojson"
         
-        # Check if already generated
-        if date_str in existing_dates and day_path.exists():
+        # Historical archive dates (< yesterday) are permanent and skipped if already cached.
+        # Live and forecast dates (>= yesterday) are always refreshed with latest weather/NWP data.
+        if date_str < yesterday_str and date_str in existing_dates and day_path.exists():
             continue
 
         day_weather = weather_df[weather_df["date_str"] == date_str]
@@ -259,8 +260,10 @@ def run_timeline_expansion():
     # Sort manifest chronologically
     manifest["dates"] = sorted(manifest["dates"], key=lambda x: x["date"])
     
-    # Set "today" in manifest to actual yesterday/today
-    manifest["today"] = yesterday_str if yesterday_str in [d["date"] for d in manifest["dates"]] else target_dates[-1]
+    # Set "today" in manifest to actual today (fallback to yesterday if today not in target dates)
+    manifest["today"] = today_str if today_str in [d["date"] for d in manifest["dates"]] else (
+        yesterday_str if yesterday_str in [d["date"] for d in manifest["dates"]] else target_dates[-1]
+    )
 
     with open(MANIFEST_PATH, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)

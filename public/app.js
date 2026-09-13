@@ -1881,9 +1881,10 @@ function renderPredictionWidget() {
 
             <!-- Rain Probability, Precipitation & Feels-Like Row -->
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
-                <div style="background:${(summary.rain_probability||0) >= 60 ? '#eff6ff' : '#f8fafc'};border:1px solid ${(summary.rain_probability||0) >= 60 ? '#bfdbfe' : '#e2e8f0'};border-radius:8px;padding:7px 8px;text-align:center;">
-                    <div style="font-size:8.5px;color:${(summary.rain_probability||0) >= 60 ? '#1d4ed8' : '#64748b'};font-weight:700;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:3px;">\ud83c\udf27\ufe0f Rain Prob</div>
-                    <div style="font-size:16px;font-weight:800;color:${(summary.rain_probability||0) >= 60 ? '#1e40af' : '#0f172a'};"> ${summary.rain_probability !== undefined ? Math.round(summary.rain_probability) + '%' : '--'}</div>
+                <div style="background:${(summary.rain_probability||0) >= 40 ? '#eff6ff' : '#f8fafc'};border:1px solid ${(summary.rain_probability||0) >= 40 ? '#bfdbfe' : '#e2e8f0'};border-radius:8px;padding:7px 8px;text-align:center;cursor:help;" title="${summary.rain_probability_note || `Daily PoP: ${summary.rain_probability}%. Peak hourly convective rain risk reaches ${summary.rain_probability_peak_pct || summary.rain_probability}% around ${summary.rain_probability_peak_hour || '15:00'} IST.`}">
+                    <div style="font-size:8.5px;color:${(summary.rain_probability||0) >= 40 ? '#1d4ed8' : '#64748b'};font-weight:700;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:3px;">\ud83c\udf27\ufe0f Rain Prob</div>
+                    <div style="font-size:16px;font-weight:800;color:${(summary.rain_probability||0) >= 40 ? '#1e40af' : '#0f172a'};"> ${summary.rain_probability !== undefined ? Math.round(summary.rain_probability) + '%' : '--'}</div>
+                    ${summary.rain_probability_peak_pct ? `<div style="font-size:8px;color:#64748b;font-weight:600;margin-top:2px;">Peak ${Math.round(summary.rain_probability_peak_pct)}% (${(summary.rain_probability_peak_hour || '15:00').replace(':00','h')})</div>` : ''}
                 </div>
                 <div style="background:${(summary.precipitation_mm||0) > 10 ? '#f0f9ff' : '#f8fafc'};border:1px solid ${(summary.precipitation_mm||0) > 10 ? '#bae6fd' : '#e2e8f0'};border-radius:8px;padding:7px 8px;text-align:center;">
                     <div style="font-size:8.5px;color:${(summary.precipitation_mm||0) > 10 ? '#0369a1' : '#64748b'};font-weight:700;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:3px;">\ud83d\udca7 Precip</div>
