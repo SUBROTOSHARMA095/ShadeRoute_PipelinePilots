@@ -27,6 +27,79 @@ function updateKpiInterventions() {
     }
 }
 
+let lastZonesGeoJSON = null;
+
+function updatePeakGroundHeatKpi(zonesGeoJSON, dateStr) {
+    if (zonesGeoJSON) lastZonesGeoJSON = zonesGeoJSON;
+    const activeGeoJSON = zonesGeoJSON || lastZonesGeoJSON;
+
+    const kpi = document.getElementById('kpiPeakHeat');
+    const label = document.getElementById('kpiPeakHeatLabel');
+    const sublabel = document.getElementById('kpiPeakHeatSublabel');
+    const coolingBefore = document.getElementById('coolingBeforeTemp');
+
+    const isHeatStressMode = (currentMode === 'heatstress');
+
+    // Find the daily peak HHSI (Heat Stress) and baseline LST (Ground Heat)
+    let maxLST = 39.4;
+    let maxHHSI = 0;
+    if (activeGeoJSON && activeGeoJSON.features && activeGeoJSON.features.length) {
+        for (let i = 0; i < activeGeoJSON.features.length; i++) {
+            const props = activeGeoJSON.features[i].properties;
+            if (!props) continue;
+            const lst = props.LST;
+            if (typeof lst === 'number' && lst > maxLST) {
+                maxLST = lst;
+            }
+            const hhsi = props.HHSI_max || props.HI_IMD;
+            if (typeof hhsi === 'number' && hhsi > maxHHSI) {
+                maxHHSI = hhsi;
+            }
+        }
+    }
+
+    // Also check manifest for official date hhsi_max_overall
+    const curDate = dateStr || currentHeatZoneDate;
+    if (heatZoneManifest && heatZoneManifest.dates && curDate) {
+        const mEntry = heatZoneManifest.dates.find(d => d.date === curDate);
+        if (mEntry && mEntry.hhsi_max_overall) {
+            maxHHSI = Math.max(maxHHSI, mEntry.hhsi_max_overall);
+        }
+    }
+
+    window._currentBaseTemp = maxLST;
+
+    const isToday = !curDate || (heatZoneManifest && curDate === heatZoneManifest.today);
+    const dateLabel = isToday ? 'today' : curDate;
+
+    if (isHeatStressMode && maxHHSI > 0) {
+        if (label) label.textContent = 'Peak Heat Stress';
+        if (kpi) {
+            kpi.textContent = `${maxHHSI.toFixed(1)}°C`;
+            kpi.className = 'kpi-value ' + (maxHHSI >= 54 ? 'purple' : maxHHSI >= 46 ? 'red' : 'amber');
+        }
+        if (sublabel) sublabel.textContent = `Hottest spot (${dateLabel})`;
+    } else {
+        if (label) label.textContent = 'Peak Ground Heat';
+        if (kpi) {
+            kpi.textContent = `${maxLST.toFixed(1)}°C`;
+            kpi.className = 'kpi-value amber';
+        }
+        if (sublabel) sublabel.textContent = isToday ? 'Summer satellite baseline' : `Satellite baseline (${dateLabel})`;
+    }
+
+    if (coolingBefore) {
+        coolingBefore.textContent = `${maxLST.toFixed(1)}°C`;
+    }
+
+    if (typeof window._updateCoolingBanner === 'function') {
+        const trees = (typeof treeMarkers !== 'undefined' && treeMarkers) ? treeMarkers.length : 0;
+        const mist  = (typeof mistMarkers !== 'undefined' && mistMarkers) ? mistMarkers.length : 0;
+        window._updateCoolingBanner(trees, mist);
+    }
+}
+window.updatePeakGroundHeatKpi = updatePeakGroundHeatKpi;
+
 // --- Heat Risk Zones state ---
 let heatZoneLegendData = null;   // parsed heat_zone_legend.json
 let heatZonesVisible = false;    // layer starts hidden until user toggles it
@@ -69,30 +142,35 @@ function setAppMode(mode) {
 
     // 3. Update Visible Layers on Map
     updateMapLayersForMode();
+
+    // 4. Update KPI Card for the Active Mode
+    if (typeof updatePeakGroundHeatKpi === 'function') {
+        updatePeakGroundHeatKpi(lastZonesGeoJSON, currentHeatZoneDate);
+    }
 }
 
 function updateMapLayersForMode() {
-    if (typeof map === 'undefined' || !map.isStyleLoaded()) return;
+    if (typeof map === 'undefined') return;
 
     const isIntervention = currentMode === 'intervention';
     const isHeatStress = currentMode === 'heatstress';
 
     // Priority Grid Layers (Intervention Mode)
-    if (map.getLayer('priority-grid')) {
+    if (map.getLayer && map.getLayer('priority-grid')) {
         map.setLayoutProperty('priority-grid', 'visibility', isIntervention ? 'visible' : 'none');
     }
-    if (map.getLayer('priority-grid-highlight')) {
+    if (map.getLayer && map.getLayer('priority-grid-highlight')) {
         map.setLayoutProperty('priority-grid-highlight', 'visibility', isIntervention ? 'visible' : 'none');
     }
 
     // Recommended Map Markers (Intervention Mode)
-    if (typeof treeMarkers !== 'undefined') {
+    if (typeof treeMarkers !== 'undefined' && treeMarkers) {
         treeMarkers.forEach(marker => {
             const el = marker.getElement();
             if (el) el.style.display = isIntervention ? 'block' : 'none';
         });
     }
-    if (typeof mistMarkers !== 'undefined') {
+    if (typeof mistMarkers !== 'undefined' && mistMarkers) {
         mistMarkers.forEach(marker => {
             const el = marker.getElement();
             if (el) el.style.display = isIntervention ? 'block' : 'none';
@@ -100,10 +178,10 @@ function updateMapLayersForMode() {
     }
 
     // Heat Risk Polygon Layers (Heat Stress Mode)
-    if (map.getLayer('heat-risk-zones-fill')) {
+    if (map.getLayer && map.getLayer('heat-risk-zones-fill')) {
         map.setLayoutProperty('heat-risk-zones-fill', 'visibility', isHeatStress ? 'visible' : 'none');
     }
-    if (map.getLayer('heat-risk-zones-outline')) {
+    if (map.getLayer && map.getLayer('heat-risk-zones-outline')) {
         map.setLayoutProperty('heat-risk-zones-outline', 'visibility', isHeatStress ? 'visible' : 'none');
     }
 }
@@ -946,6 +1024,7 @@ function loadHeatRiskZones() {
                     currentHeatZoneDate = defaultDate;
                     initHeatZoneLayers(zonesGeoJSON);
                     buildHeatZoneDatePicker();
+                    updatePeakGroundHeatKpi(zonesGeoJSON, defaultDate);
                 });
         })
         .catch(error => console.error('Could not load heat risk zone data:', error));
@@ -1032,6 +1111,7 @@ function switchHeatZoneDate(dateStr) {
             if (map && map.getSource('heat-risk-zones')) {
                 map.getSource('heat-risk-zones').setData(zonesGeoJSON);
             }
+            updatePeakGroundHeatKpi(zonesGeoJSON, entry.date);
             if (typeof showMessage === 'function') {
                 const hhsiTxt = entry.hhsi_max_overall ? ` (Max HHSI: ${entry.hhsi_max_overall}°C)` : '';
                 showMessage(`Showing thermal stress for ${entry.date}${hhsiTxt}`);

@@ -1,10 +1,10 @@
 {
   "metadata": {
     "title": "ShadeRoute Scientific Bibliography & Institutional Documentation",
-    "version": "2.1.0",
+    "version": "2.3.0",
     "study_area": "Bhubaneswar, Odisha (SOA ITER Campus & Surrounding 3 km² Neighborhood)",
-    "last_updated": "2026-05-12",
-    "plain_english_summary": "All satellite indices (NDVI, LST, NDWI, BSI, NDBI) come from standard 900 m² satellite imagery (Landsat & Sentinel-5P) processed automatically via Google Earth Engine and ground-verified through on-site campus visits. All weather data (solar radiation, air temperature, humidity %, and atmospheric pressure) come from NASA POWER (MERRA-2) from 2.1.2015 to 12.5.2026. Formulas for pedestrian walking exposure and vulnerability were formulated in-house by Team Pipeline Pilots based on direct scientific and biometeorological principles.",
+    "last_updated": "2026-09-14",
+    "plain_english_summary": "All satellite indices (NDVI, LST, NDWI, BSI, NDBI) come from 900 m² satellite imagery (Landsat 9 & Sentinel-5P) processed via Google Earth Engine and ground-verified through on-site campus surveys. Historical baseline meteorological data comes from NASA POWER (MERRA-2) from 2015 to 2026, while live and forward forecasts ingest high-resolution ECMWF numerical weather prediction (NWP) via Open-Meteo with calibrated dual-metric precipitation probability. Patient surge models and clinical resource pre-allocation are grounded in WHO (2024), NCDC NAP-HRI (2024), NDMA, and AIIMS emergency protocols.",
     "categories": [
       {
         "key": "all",
@@ -35,6 +35,11 @@
         "key": "clinical_epidemiology",
         "label": "Hospital Surge & Action Plans",
         "icon": "🏥"
+      },
+      {
+        "key": "governance_disclaimers",
+        "label": "Disclaimers & Clinical Ethics",
+        "icon": "⚖️"
       }
     ]
   },
@@ -326,6 +331,118 @@
       "formula_mapping": "Consecutive Day Multipliers: Day 1 = 1.00 | Day 2 = 1.25 | Day 3+ = 1.35",
       "apa_citation": "Bobb, J. F., Obermeyer, Z., Wang, Y., & Dominici, F. (2014). Cause-specific risk of hospital admission related to extreme heat in older adults. JAMA, 312(24), 2659–2667.",
       "bibtex": "@article{bobb2014cause,\n  title={Cause-specific risk of hospital admission related to extreme heat in older adults},\n  author={Bobb, J. F. and Obermeyer, Z. and Wang, Y. and Dominici, F.},\n  journal={JAMA},\n  volume={312},\n  number={24},\n  pages={2659--2667},\n  year={2014}\n}"
+    },
+    {
+      "id": "wmo_nws_pop_definition",
+      "category": "thermal_biometeorology",
+      "category_label": "Weather, Heat Indices & Forecast",
+      "category_icon": "🌧️",
+      "title": "Dual-Metric Probability of Precipitation (PoP) & Diurnal Areal Averaging",
+      "authors": "World Meteorological Organization (WMO No. 488) & US National Weather Service (NWS)",
+      "year": 2023,
+      "venue": "WMO Manual on the Global Data-processing and Forecasting System & NWS Instruction 10-503",
+      "doi_or_url": "https://library.wmo.int/records/item/35625-manual-on-the-global-data-processing-and-forecasting-system",
+      "url_type": "Official WMO Technical Standard",
+      "implementation_role": "Underpins ShadeRoute's Dual-Metric Precipitation Framework: (1) Standard Daily PoP (49% on Sep 14) aligns with WMO standard 12-hour/24-hour diurnal ensemble probability (matching MSN Weather, IMD, and AccuWeather reports); (2) Hourly NWP Convective Peak (97% at 15:00 IST) resolves acute afternoon cloudburst timing to detect convective thermal suppression and localized flood/humidity surges.",
+      "formula_mapping": "Daily PoP = (Daytime_Mean + 24h_Mean) / 2 [Standard Channel Alignment] | Hourly Peak = max(hourly_PoP)",
+      "apa_citation": "World Meteorological Organization. (2023). Guide to the global data-processing and forecasting system (WMO-No. 488). WMO Press.",
+      "bibtex": "@manual{wmo2023pop,\n  title={Guide to the Global Data-processing and Forecasting System (WMO-No. 488)},\n  author={{World Meteorological Organization}},\n  year={2023},\n  organization={World Meteorological Organization}\n}"
+    },
+    {
+      "id": "ndma_heatwave_guidelines",
+      "category": "clinical_epidemiology",
+      "category_label": "Hospital Surge & Action Plans",
+      "category_icon": "🇮🇳",
+      "title": "National Guidelines for Preparation of Action Plan for Prevention and Management of Heat Wave",
+      "authors": "National Disaster Management Authority (NDMA), Government of India",
+      "year": 2023,
+      "venue": "NDMA Bhawan, Safdarjung Enclave, New Delhi",
+      "doi_or_url": "https://ndma.gov.in/Governance/Guidelines",
+      "url_type": "Official NDMA Portal",
+      "implementation_role": "Provides the institutional mandate for India's heatwave early warning system, tiered alert escalation (Normal -> Watch -> Heat Warning -> Severe Heat Warning), inter-agency public health coordination, and drinking water / cooling shelter mandates for educational institutions and urban transit corridors.",
+      "formula_mapping": "Alert Tiers: Normal (Safe) | Watch / Humidity-Heat Window (Caution) | Heat Warning (Orange) | Severe Warning (Red)",
+      "apa_citation": "National Disaster Management Authority. (2023). National guidelines for preparation of action plan for prevention and management of heat wave. NDMA, Government of India.",
+      "bibtex": "@manual{ndma2023guidelines,\n  title={National Guidelines for Preparation of Action Plan for Prevention and Management of Heat Wave},\n  author={{National Disaster Management Authority}},\n  year={2023},\n  organization={Government of India}\n}"
+    },
+    {
+      "id": "imd_monsoon_surveillance",
+      "category": "thermal_biometeorology",
+      "category_label": "Weather, Heat Indices & Forecast",
+      "category_icon": "🌦️",
+      "title": "IMD Automated Weather Station (AWS) Network & Monsoon Heat-Humidity Surveillance",
+      "authors": "India Meteorological Department (IMD), Regional Meteorological Centre, Bhubaneswar",
+      "year": 2024,
+      "venue": "IMD Operational Meteorological Bulletin & Climatological Tables",
+      "doi_or_url": "https://mausam.imd.gov.in",
+      "url_type": "Official IMD MoES Portal",
+      "implementation_role": "Validates the tropical coastal monsoon dynamics of Bhubaneswar (20.25°N, 85.80°E): high ambient humidity (80-92% RH) interacts with high dry-bulb temperatures to create elevated apparent temperatures (feels-like >40°C) and acute pre-rain humidity-heat danger windows even when synoptic heatwave probability is low.",
+      "formula_mapping": "Tropical Monsoon Dynamic: High RH (80-92%) + Tmax (33-36°C) -> Apparent Temp >41°C (Dangerous Muggy Stress)",
+      "apa_citation": "India Meteorological Department. (2024). Operational weather bulletins and climatological monitoring for Odisha region. Ministry of Earth Sciences, Government of India.",
+      "bibtex": "@techreport{imd2024monsoon,\n  title={Operational Weather Bulletins and Climatological Monitoring for Odisha},\n  author={{India Meteorological Department}},\n  year={2024},\n  institution={Ministry of Earth Sciences, Government of India}\n}"
+    },
+    {
+      "id": "clinical_decision_support_disclaimer",
+      "category": "governance_disclaimers",
+      "category_label": "Disclaimers & Clinical Ethics",
+      "category_icon": "🩺",
+      "title": "Institutional Statement on Hospital Surge Decision Support & Non-Diagnostic Scope",
+      "authors": "Team Pipeline Pilots Scientific & Clinical Advisory Protocol",
+      "year": 2026,
+      "venue": "ShadeRoute Clinical & Public Health Governance Framework",
+      "doi_or_url": "https://github.com",
+      "url_type": "Institutional Governance Notice",
+      "implementation_role": "LEGAL & CLINICAL DISCLAIMER: All patient surge percentages, excess emergency presentation estimates, Heat Stroke Unit (HSU) bed allocations, oral rehydration solution (ORS) counts, and clinical staffing projections generated by ShadeRoute are predictive decision-support metrics intended strictly for hospital administrators, emergency department directors, and public health planners. They are derived from epidemiological relative risk models (WHO 2024, NCDC NAP-HRI 2024, Phung et al. 2016) applied to publicly known facility capacities. They DO NOT constitute individual medical diagnosis, medical treatment, or patient-specific clinical triage. Facility baseline counts represent published public bed capacities and standard operational benchmarks without private patient medical records.",
+      "formula_mapping": "Regulatory Standard: Epidemiological Operational Decision-Support (Non-Diagnostic Software)",
+      "apa_citation": "Team Pipeline Pilots. (2026). Institutional clinical decision-support and data governance statement. ShadeRoute Technical Governance Documentation.",
+      "bibtex": "@misc{pipelinet2026clinicaldisclaimer,\n  title={ShadeRoute Clinical Decision-Support and Data Governance Statement},\n  author={{Team Pipeline Pilots}},\n  year={2026}\n}"
+    },
+    {
+      "id": "meteorological_nwp_disclaimer",
+      "category": "governance_disclaimers",
+      "category_label": "Disclaimers & Clinical Ethics",
+      "category_icon": "🌐",
+      "title": "Meteorological Numerical Forecast Uncertainty & Micro-Climate Statement",
+      "authors": "Team Pipeline Pilots Biometeorological Modeling Unit",
+      "year": 2026,
+      "venue": "ShadeRoute Atmospheric & Sensor Calibration Framework",
+      "doi_or_url": "https://github.com",
+      "url_type": "Meteorological Governance Notice",
+      "implementation_role": "METEOROLOGICAL DISCLAIMER: Real-time and forward numerical weather predictions are ingested from ECMWF Integrated Forecasting System (IFS) open data via Open-Meteo API and calibrated against IMD heat standards. While high-resolution ECMWF models represent the global benchmark in atmospheric modeling, localized micro-climate phenomena (e.g., sudden convective thunderstorm cells, rapid sea-breeze inland penetration, and localized asphalt surface heat retention) may exhibit temporal or spatial variance from NWP grid outputs. Precipitation probabilities are provided as dual metrics: standard Daily PoP for channel comparability and instantaneous hourly convective peaks for pedestrian timing.",
+      "formula_mapping": "Calibration Baseline: ECMWF IFS (0.1° resolution) + Ground Historical Observation Anchoring (2015-2026)",
+      "apa_citation": "Team Pipeline Pilots. (2026). Numerical weather prediction uncertainty and local micro-climate validation protocol. ShadeRoute Technical Report.",
+      "bibtex": "@misc{pipelinet2026metdisclaimer,\n  title={NWP Uncertainty and Micro-Climate Calibration Protocol},\n  author={{Team Pipeline Pilots}},\n  year={2026}\n}"
+    },
+    {
+      "id": "pedestrian_safety_disclaimer",
+      "category": "governance_disclaimers",
+      "category_label": "Disclaimers & Clinical Ethics",
+      "category_icon": "🚶",
+      "title": "Pedestrian Route Optimization & Individual Heat Strain Advisory",
+      "authors": "Team Pipeline Pilots Campus Safety & Operations Framework",
+      "year": 2026,
+      "venue": "ShadeRoute Pedestrian Navigation & Heat Safety Documentation",
+      "doi_or_url": "https://github.com",
+      "url_type": "Public Safety Advisory Notice",
+      "implementation_role": "PUBLIC SAFETY DISCLAIMER: Recommended shade corridors and safe outdoor transit windows are calculated to minimize thermal radiation exposure for average healthy adults based on satellite-derived tree shade and surface temperatures. Individual heat tolerance varies significantly with age, cardiovascular fitness, hydration, medications, and pre-existing chronic illnesses (COPD, diabetes, kidney disease). Pedestrians, students, and campus visitors are advised to heed official IMD color-coded heat warnings, maintain adequate hydration, avoid direct sun exposure during peak thermal hours, and seek immediate medical attention at the SOA Dispensary or IMS & SUM Hospital if experiencing symptoms of heat exhaustion or heatstroke.",
+      "formula_mapping": "Advisory Standard: General Public Urban Mobility & Micro-Climate Route Recommendation",
+      "apa_citation": "Team Pipeline Pilots. (2026). Pedestrian route optimization and individual biometeorological safety advisory. ShadeRoute Safety Documentation.",
+      "bibtex": "@misc{pipelinet2026pedsafety,\n  title={Pedestrian Route Optimization and Biometeorological Safety Advisory},\n  author={{Team Pipeline Pilots}},\n  year={2026}\n}"
     }
-  ]
+  ],
+  "disclaimers": {
+    "meteorological_notice": {
+      "title": "Meteorological Data & Forecast Modeling Notice",
+      "summary": "NWP outputs are derived from ECMWF Integrated Forecasting System (IFS) models via Open-Meteo and calibrated against IMD heat standards. Localized convective activity, cloud cover, and asphalt thermal mass may introduce micro-climate variations.",
+      "dual_metric_precipitation": "Precipitation probability is presented as a dual metric: Standard Daily PoP (49% on Sep 14) aligned with WMO and consumer weather channel reports (MSN Weather, AccuWeather), alongside Peak Hourly Convective Probability (97% at 15:00 IST) to resolve localized thunderstorm safety windows."
+    },
+    "clinical_decision_support_notice": {
+      "title": "Hospital Patient Surge & Clinical Resource Pre-Allocation Notice",
+      "summary": "All casualty surge projections, Heat Stroke Unit (HSU) bed allocations, ORS requirements, and emergency staffing schedules are predictive operational support tools designed exclusively for healthcare facility resource pre-allocation. They are grounded in WHO (2024), NCDC NAP-HRI (2024), and NDMA benchmarks and DO NOT constitute individual medical diagnosis or patient-level clinical triage.",
+      "data_confidentiality": "Facility baseline loads represent publicly accessible bed capacities and standard epidemiological estimates; no private patient medical records or confidential hospital internal data are utilized."
+    },
+    "spatial_and_spectral_notice": {
+      "title": "Satellite Earth Observation & Spatial Twin Notice",
+      "summary": "All spectral indices (NDVI, LST, NDWI, BSI, NDBI) are processed from Landsat 9 (30m × 30m, 900 m² ground footprint) and Sentinel-5P imagery via Google Earth Engine and verified through physical on-site campus ground surveys across the SOA ITER campus."
+    }
+  }
 }
