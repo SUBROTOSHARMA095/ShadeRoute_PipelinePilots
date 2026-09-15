@@ -9,8 +9,10 @@ Observation Source: data/ShadeRoute_FULL_Hourly_20150102_20260512.csv
 NWP Source: Open-Meteo Historical Forecast API (ECMWF-based model archive)
 Period: 2022-01-01 to 2026-05-12
 
-This aligns historical forecast variables (including atmospheric pressure, CAPE,
-precipitation, humidity, wind) with ground truth heatwave occurrences.
+This aligns historical forecast variables with ground truth heat-stress labels for
+model development.  The Historical Forecast API is a continuous archive, so its
+rows must not be used to claim fixed-lead operational forecast accuracy; use
+Open-Meteo's previous-runs/single-runs data for that verification.
 """
 
 import os
@@ -235,18 +237,19 @@ def build_aligned_nwp_dataset():
     merged["DOY_sin"] = np.sin(2 * np.pi * merged["DOY"] / 365.25)
     merged["DOY_cos"] = np.cos(2 * np.pi * merged["DOY"] / 365.25)
 
-    # 5. Create multi-horizon targets and forward-looking forecast alignment
-    # For day d, predicting d+h:
-    for h in [1, 2, 3]:
-        merged[f"TARGET_h{h}"] = merged["HEATWAVE_DAY"].shift(-h)
+    # 5. Create multi-horizon development targets and forward-looking alignment (H0, H1, H2, H3).
+    # H0 is the same-day nowcast (h=0), while H1, H2, H3 are 1, 2, 3 days ahead.
+    for h in [0, 1, 2, 3]:
+        merged[f"TARGET_h{h}"] = merged["HEATWAVE_DAY"].shift(-h) if h > 0 else merged["HEATWAVE_DAY"]
         # Shift forward the NWP forecast corresponding to day d+h
         for col in [
             "forecast_tmax", "forecast_tmin", "forecast_tmean", "forecast_rh_mean",
             "forecast_precip_sum", "forecast_rain_sum", "forecast_showers_sum",
             "forecast_surface_pressure_mean", "forecast_cape_max", "forecast_cloud_mean",
-            "forecast_wind_max", "pressure_change_24h", "rapid_pressure_drop"
+            "forecast_wind_max", "pressure_change_24h", "rapid_pressure_drop",
+            "forecast_apptemp_max", "forecast_dewpt_mean", "forecast_radiation_sum", "forecast_rh_min"
         ]:
-            merged[f"{col}_target_h{h}"] = merged[col].shift(-h)
+            merged[f"{col}_target_h{h}"] = merged[col].shift(-h) if h > 0 else merged[col]
 
         # Target day seasonal features
         target_doy = (merged["DOY"] + h - 1) % 365 + 1

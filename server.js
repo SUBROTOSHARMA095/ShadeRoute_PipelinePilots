@@ -91,8 +91,29 @@ function autoRefreshCacheIfStale() {
     const livePredPath = path.join(PUBLIC_DATA_DIR, 'live_predictions.json');
     const mtime = getFileMtimeMs(livePredPath);
     const age = Date.now() - mtime;
-    if ((mtime === 0 || age > CACHE_MAX_AGE_MS) && !isForecastRunning) {
-        console.log(`[Cache] Live forecast is ${(age / 3600000).toFixed(1)} hrs old (> 3h threshold). Refreshing in background...`);
+
+    // Check if midnight (12:00 AM) rolled over and current IST date is not active today in cache
+    let isMidnightRollover = false;
+    try {
+        if (fs.existsSync(livePredPath)) {
+            const predData = JSON.parse(fs.readFileSync(livePredPath, 'utf8'));
+            // Current local IST date (UTC+5:30)
+            const nowIst = new Date(Date.now() + (5.5 * 60 * 60 * 1000));
+            const todayIstStr = nowIst.toISOString().split('T')[0];
+            const todayEntry = predData[todayIstStr];
+            // If today is not in predictions or not flagged as active today (horizon 0), recalibrate!
+            if (!todayEntry || todayEntry.horizon !== 0 || todayEntry.is_historical) {
+                isMidnightRollover = true;
+            }
+        } else {
+            isMidnightRollover = true;
+        }
+    } catch (e) {
+        isMidnightRollover = true;
+    }
+
+    if ((mtime === 0 || age > CACHE_MAX_AGE_MS || isMidnightRollover) && !isForecastRunning) {
+        console.log(`[Cache] Live forecast requires recalibration (age: ${(age / 3600000).toFixed(1)}h, midnightRollover: ${isMidnightRollover}). Running live NWP pipeline...`);
         runLiveForecastScript().catch(err => console.warn('[Cache Refresh Failed]:', err.message));
     }
 }
@@ -156,6 +177,9 @@ app.get('/api/predictions/hourly/live', (req, res) => {
 app.get('/api/surge/live', (req, res) => {
     sendJsonWithFallback(res, 'live_surge.json', 'hospital_surge_predictions_may2026.json');
 });
+
+// Favicon handler
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // 6. GET /api/weather/current -> public/data/live_weather.json (Current NWP Snapshot)
 app.get('/api/weather/current', (req, res) => {

@@ -793,7 +793,7 @@ def calculate_surge_predictions(
         soa_h = data["facility_projections"]["soa_student_health_centre"]
         print(
             f"  * {date_str} [{data['alert_level']}]: "
-            f"Surge +{data['surge_percent']}% (Planning Range: {data['planning_range_percent'][0]}%–{data['planning_range_percent'][1]}%) | "
+            f"Surge +{data['surge_percent']}% (Planning Range: {data['planning_range_percent'][0]}% - {data['planning_range_percent'][1]}%) | "
             f"IMS & SUM Emergency: {sum_h['baseline_emergency']} -> {sum_h['projected_emergency']} (+{sum_h['excess_emergency_patients']} excess) | "
             f"SOA Dispensary: {soa_h['baseline_emergency']} -> {soa_h['projected_emergency']} ({soa_h['capacity_action_status']})"
         )

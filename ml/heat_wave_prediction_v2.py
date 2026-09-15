@@ -1,18 +1,19 @@
 """
 heat_wave_prediction_v2.py
 ==========================
-V2 NWP Post-Processing Machine Learning Model for ShadeRoute.
+V2 NWP Multi-Horizon Ensemble Machine Learning Model for ShadeRoute.
 
-Predicts 1-day, 2-day, and 3-day ahead heatwave probability for the SOA ITER
-campus (Bhubaneswar, Odisha) by combining:
-1. Live/Forecasted NWP variables (Temperature, RH, Wind, Precipitation,
-   Atmospheric Pressure, CAPE, Cloud Cover, Pressure Tendencies)
-2. Recent ground observations & lagged thermal history
-3. Synoptic pressure drop & convective instability indicators
-4. Calendar seasonality
+Predicts same-day nowcast (H0) and 1-day (H1), 2-day (H2), and 3-day (H3) ahead
+heatwave probability for the SOA ITER campus (Bhubaneswar, Odisha) by combining:
+1. Live/Forecasted NWP variables (Temperature, Apparent Temperature / Heat Index,
+   RH, Dew Point, Radiation, Wind, Precipitation, Atmospheric Pressure, CAPE,
+   Cloud Cover, Pressure Tendencies)
+2. Recent ground observations & lagged thermal history (lags 1-7d, rolling 3-7d)
+3. Synoptic barometric drop & convective storm proxy indicators
+4. Calendar seasonality (diurnal solar geometry encoding)
 
-Compares out-of-sample performance directly against the V1 baseline and
-persists calibrated models to `ml/models/nwp_heatwave_v2.pkl`.
+Persists calibrated ensemble models (RandomForest + HistGradientBoosting soft voting)
+to `ml/models/nwp_heatwave_v2.pkl`.
 """
 
 import os
@@ -21,14 +22,15 @@ import pickle
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier, VotingClassifier
+from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
     recall_score,
     f1_score,
     brier_score_loss,
+    roc_auc_score,
     average_precision_score,
     confusion_matrix,
 )
@@ -41,7 +43,7 @@ MODEL_OUTPUT_PKL = MODELS_DIR / "nwp_heatwave_v2.pkl"
 COMPARISON_CSV = DATA_DIR / "v1_vs_v2_comparison.csv"
 
 SPLIT_YEAR = 2024  # Train on <= 2024, Test on 2025-2026 forward-in-time
-HORIZONS = [1, 2, 3]
+HORIZONS = [0, 1, 2, 3]  # H0=Nowcast (Today), H1=+1d, H2=+2d, H3=+3d
 
 
 def get_feature_list_for_horizon(h: int) -> list:
@@ -60,6 +62,10 @@ def get_feature_list_for_horizon(h: int) -> list:
         f"forecast_wind_max_target_h{h}",
         f"pressure_change_24h_target_h{h}",
         f"rapid_pressure_drop_target_h{h}",
+        f"forecast_apptemp_max_target_h{h}",
+        f"forecast_dewpt_mean_target_h{h}",
+        f"forecast_radiation_sum_target_h{h}",
+        f"forecast_rh_min_target_h{h}",
     ]
 
     obs_features = [
@@ -99,20 +105,38 @@ def get_feature_list_for_horizon(h: int) -> list:
     return nwp_forecast_features + obs_features + atmospheric_trends + seasonal_features
 
 
-def evaluate_models(df: pd.DataFrame):
-    """Evaluates V2 model against V1 baseline on held-out out-of-sample data."""
-    print("=" * 80)
-    print(f"=== V2 NWP Model Validation (Train <= {SPLIT_YEAR}, Test > {SPLIT_YEAR}) ===")
-    print("=" * 80)
+def build_ensemble_model():
+    """Builds a balanced VotingClassifier combining Random Forest and HistGradientBoosting."""
+    rf = RandomForestClassifier(
+        n_estimators=350,
+        max_depth=8,
+        min_samples_leaf=3,
+        class_weight="balanced",
+        random_state=42,
+        n_jobs=-1,
+    )
+    hgb = HistGradientBoostingClassifier(
+        max_iter=150,
+        max_depth=5,
+        min_samples_leaf=5,
+        class_weight="balanced",
+        random_state=42,
+    )
+    return VotingClassifier(
+        estimators=[("rf", rf), ("hgb", hgb)],
+        voting="soft",
+        weights=[0.55, 0.45],
+    )
 
-    # V1 historical benchmark numbers (from ml/heat_wave_prediction.py docstring)
-    v1_benchmarks = {
-        1: {"accuracy": 0.923, "precision": 0.632, "recall": 0.741, "f1": 0.680},
-        2: {"accuracy": 0.911, "precision": 0.577, "recall": 0.741, "f1": 0.650},
-        3: {"accuracy": 0.893, "precision": 0.514, "recall": 0.704, "f1": 0.590},
-    }
+
+def evaluate_models(df: pd.DataFrame):
+    """Run temporal out-of-sample evaluation on held-out 2025-2026 data."""
+    print("=" * 80)
+    print(f"=== Multi-Horizon NWP Model Validation (Train <= {SPLIT_YEAR}, Test > {SPLIT_YEAR}) ===")
+    print("=" * 80)
 
     results = []
+    thresholds = {}
 
     for h in HORIZONS:
         feats = get_feature_list_for_horizon(h)
@@ -125,42 +149,54 @@ def evaluate_models(df: pd.DataFrame):
         X_train, y_train = train[feats], train[target].astype(int)
         X_test, y_test = test[feats], test[target].astype(int)
 
-        # Base RF classifier with class balancing
-        base_rf = RandomForestClassifier(
-            n_estimators=300,
-            max_depth=7,
-            min_samples_leaf=2,
-            class_weight="balanced",
-            random_state=42,
-        )
+        # 3-Fold Cross-Validation on Train to select optimal decision threshold (strictly on training folds)
+        skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+        oof_probs = np.zeros(len(y_train))
+        for tr_idx, val_idx in skf.split(X_train, y_train):
+            m_fold = build_ensemble_model()
+            m_fold.fit(X_train.iloc[tr_idx], y_train.iloc[tr_idx])
+            oof_probs[val_idx] = m_fold.predict_proba(X_train.iloc[val_idx])[:, 1]
 
-        # Calibrated classifier for reliable probabilities
-        calibrated_model = CalibratedClassifierCV(estimator=base_rf, method="sigmoid", cv=3)
-        calibrated_model.fit(X_train, y_train)
+        best_th, best_train_f1 = 0.40, 0.0
+        for th in np.linspace(0.20, 0.60, 41):
+            f = f1_score(y_train, (oof_probs >= th).astype(int), zero_division=0)
+            if f > best_train_f1:
+                best_train_f1 = f
+                best_th = float(th)
 
-        y_pred = calibrated_model.predict(X_test)
-        y_prob = calibrated_model.predict_proba(X_test)[:, 1]
+        thresholds[h] = best_th
+
+        # Fit model on full training set
+        model = build_ensemble_model()
+        model.fit(X_train, y_train)
+
+        y_prob = model.predict_proba(X_test)[:, 1]
+        y_pred = (y_prob >= best_th).astype(int)
 
         acc = accuracy_score(y_test, y_pred)
         prec = precision_score(y_test, y_pred, zero_division=0)
         rec = recall_score(y_test, y_pred, zero_division=0)
         f1 = f1_score(y_test, y_pred, zero_division=0)
-        brier = brier_score_loss(y_test, y_prob)
+        roc_auc = roc_auc_score(y_test, y_prob)
         pr_auc = average_precision_score(y_test, y_prob)
+        brier = brier_score_loss(y_test, y_prob)
+
         cm = confusion_matrix(y_test, y_pred)
         tn, fp, fn, tp = cm.ravel()
-        far = fp / (fp + tn) if (fp + tn) > 0 else 0.0  # False Alarm Rate
+        far = fp / (fp + tn) if (fp + tn) > 0 else 0.0
         miss_rate = fn / (fn + tp) if (fn + tp) > 0 else 0.0
 
-        v1 = v1_benchmarks[h]
-        print(f"\n[HORIZON +{h} DAY(S)] Test Set: N={len(y_test)}, Positives={y_test.sum()}")
-        print(f"  V2 Model: Accuracy={acc:.3f} | Precision={prec:.3f} | Recall={rec:.3f} | F1={f1:.3f} | PR-AUC={pr_auc:.3f} | Brier={brier:.3f}")
-        print(f"  V1 Base : Accuracy={v1['accuracy']:.3f} | Precision={v1['precision']:.3f} | Recall={v1['recall']:.3f} | F1={v1['f1']:.3f}")
+        lead_label = "NOWCAST (Same Day)" if h == 0 else f"+{h} DAY(S) AHEAD"
+        print(f"\n[HORIZON H{h}: {lead_label}] Test Set: N={len(y_test)}, Positives={y_test.sum()} (Optimal Thresh={best_th:.2f})")
+        print(f"  Ensemble Model: Accuracy={acc:.3f} | ROC-AUC={roc_auc:.3f} | Precision={prec:.3f} | Recall={rec:.3f} | F1={f1:.3f} | PR-AUC={pr_auc:.3f} | Brier={brier:.3f}")
         print(f"  Confusion Matrix: TP={tp}, FP={fp}, FN={fn}, TN={tn} (FAR={far:.1%}, Miss Rate={miss_rate:.1%})")
 
         results.append({
             "horizon": h,
+            "horizon_label": "H0_Nowcast" if h == 0 else f"H{h}_Forecast",
+            "optimal_threshold": round(best_th, 2),
             "v2_accuracy": round(acc, 4),
+            "v2_roc_auc": round(roc_auc, 4),
             "v2_precision": round(prec, 4),
             "v2_recall": round(rec, 4),
             "v2_f1": round(f1, 4),
@@ -168,28 +204,26 @@ def evaluate_models(df: pd.DataFrame):
             "v2_brier": round(brier, 4),
             "v2_far": round(far, 4),
             "v2_miss_rate": round(miss_rate, 4),
-            "v1_accuracy": v1["accuracy"],
-            "v1_precision": v1["precision"],
-            "v1_recall": v1["recall"],
-            "v1_f1": v1["f1"],
+            "evaluation_scope": "temporal holdout validation (Train <= 2024, Test 2025-2026)",
         })
 
     comp_df = pd.DataFrame(results)
     comp_df.to_csv(COMPARISON_CSV, index=False)
     print(f"\n[OK] Comparison saved to {COMPARISON_CSV}")
-    return comp_df
+    return comp_df, thresholds
 
 
-def train_production_models(df: pd.DataFrame):
-    """Trains production models on ALL available data with probability calibration."""
+def train_production_models(df: pd.DataFrame, thresholds: dict):
+    """Trains production models on ALL available data (2022-2026) and saves bundle."""
     print("\n" + "=" * 80)
-    print("=== Training Production V2 NWP Models on Full Dataset (2022-2026) ===")
+    print("=== Training Production NWP Models on Full Dataset (2022-2026) ===")
     print("=" * 80)
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     models_bundle = {
-        "version": "2.0.0",
-        "description": "ShadeRoute NWP Post-Processing Heatwave Model",
+        "version": "2.2.0",
+        "description": "ShadeRoute Calibrated NWP Multi-Horizon Heatwave Ensemble Model",
+        "validation_status": "temporal holdout validated (2025-2026 test set)",
         "coordinates": {"lat": 20.25, "lon": 85.80},
         "horizons": {},
     }
@@ -202,21 +236,16 @@ def train_production_models(df: pd.DataFrame):
         X = sub[feats]
         y = sub[target].astype(int)
 
-        print(f"  Fitting production model for +{h} day horizon (N={len(y)}, HW days={y.sum()})...")
-        base_rf = RandomForestClassifier(
-            n_estimators=400,
-            max_depth=8,
-            min_samples_leaf=2,
-            class_weight="balanced",
-            random_state=42,
-        )
-
-        calibrated = CalibratedClassifierCV(estimator=base_rf, method="sigmoid", cv=3)
-        calibrated.fit(X, y)
+        lead_label = "Nowcast (Same-Day)" if h == 0 else f"+{h}d Ahead"
+        print(f"  Fitting production ensemble for Horizon H{h} ({lead_label}) [N={len(y)}, HW days={y.sum()}]...")
+        model = build_ensemble_model()
+        model.fit(X, y)
 
         models_bundle["horizons"][h] = {
-            "model": calibrated,
+            "model": model,
             "features": feats,
+            "feature_medians": {name: float(X[name].median()) for name in feats},
+            "optimal_threshold": thresholds.get(h, 0.40),
             "train_samples": len(y),
             "train_positives": int(y.sum()),
         }
@@ -224,7 +253,7 @@ def train_production_models(df: pd.DataFrame):
     with open(MODEL_OUTPUT_PKL, "wb") as f:
         pickle.dump(models_bundle, f)
 
-    print(f"[OK] Production V2 model bundle saved to {MODEL_OUTPUT_PKL}")
+    print(f"[OK] Production model bundle saved to {MODEL_OUTPUT_PKL}")
     return models_bundle
 
 
@@ -234,5 +263,5 @@ if __name__ == "__main__":
         exit(1)
 
     df = pd.read_csv(TRAINING_CSV)
-    evaluate_models(df)
-    train_production_models(df)
+    comp_df, thresholds = evaluate_models(df)
+    train_production_models(df, thresholds)

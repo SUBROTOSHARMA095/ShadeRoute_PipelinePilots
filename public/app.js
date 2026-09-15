@@ -1463,6 +1463,7 @@ function switchPredictionDate(dateStr) {
     renderPredictionWidget();
 }
 window.switchPredictionDate = switchPredictionDate;
+window.getActivePredictionDate = () => activePredictionDate;
 
 function togglePredictionWidget() {
     isPredictionWidgetCollapsed = !isPredictionWidgetCollapsed;
@@ -1735,6 +1736,43 @@ function loadRightPredictionWidget() {
     .catch(err => console.error("Error loading prediction datasets:", err));
 }
 
+// Robust resolver for Current Operational Day in Indian Standard Time (IST)
+function getLiveTodayDateStr() {
+    if (predictionsSummaryData) {
+        const todayKey = Object.keys(predictionsSummaryData).find(d => {
+            const item = predictionsSummaryData[d];
+            return item && (item.is_today === true || item.horizon === 0);
+        });
+        if (todayKey) return todayKey;
+    }
+    if (heatZoneManifest && heatZoneManifest.today) {
+        return heatZoneManifest.today;
+    }
+    try {
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    } catch (e) {
+        const nowIst = new Date(Date.now() + (5.5 * 60 * 60 * 1000));
+        return nowIst.toISOString().split('T')[0];
+    }
+}
+
+// Midnight rollover watcher: when day changes in IST, automatically refresh datasets
+if (typeof window !== 'undefined') {
+    const rolloverTimer = setInterval(() => {
+        const currentIstToday = getLiveTodayDateStr();
+        const cachedToday = predictionsSummaryData && Object.keys(predictionsSummaryData).find(d => predictionsSummaryData[d] && predictionsSummaryData[d].is_today);
+        if (cachedToday && currentIstToday !== cachedToday) {
+            console.log(`[ShadeRoute] Midnight rollover detected (${cachedToday} -> ${currentIstToday}). Refreshing forecast...`);
+            if (typeof loadRightPredictionWidget === 'function') {
+                loadRightPredictionWidget();
+            }
+        }
+    }, 3 * 60 * 1000);
+    if (rolloverTimer && typeof rolloverTimer.unref === 'function') {
+        rolloverTimer.unref();
+    }
+}
+
 /* ─── Main render function ──────────────────────────────────── */
 function renderPredictionWidget() {
     const card = document.getElementById('rightPredictionCard');
@@ -1743,8 +1781,10 @@ function renderPredictionWidget() {
     const availableDates = Object.keys(predictionsSummaryData || {}).sort();
     if (!availableDates.length) return;
 
-    if (!availableDates.includes(activePredictionDate)) {
-        activePredictionDate = availableDates[0];
+    const todayDateStr = getLiveTodayDateStr();
+
+    if (!activePredictionDate || !availableDates.includes(activePredictionDate)) {
+        activePredictionDate = availableDates.includes(todayDateStr) ? todayDateStr : availableDates[0];
     }
 
     const summary = predictionsSummaryData[activePredictionDate] || {};
@@ -1756,7 +1796,13 @@ function renderPredictionWidget() {
     const badgeColor  = isHeatwave ? '#dc2626' : '#059669';
     const badgeBg     = isHeatwave ? '#fef2f2' : '#ecfdf5';
     const badgeBorder = isHeatwave ? '#fecaca' : '#a7f3d0';
-    const probPct     = ((rec.heatwave_probability || summary.probability_of_heatwave || 0) * 100).toFixed(0);
+    const rawProbability = rec.heatwave_probability ?? summary.probability_of_heatwave;
+    const hasForecastProbability = Number.isFinite(rawProbability);
+    const probPct = hasForecastProbability
+        ? (rawProbability * 100 < 1 && rawProbability > 0
+            ? (rawProbability * 100).toFixed(1)
+            : (rawProbability * 100).toFixed(0))
+        : null;
 
     /* ── Reset card styles ── */
     card.style.cssText = '';
@@ -1850,23 +1896,83 @@ function renderPredictionWidget() {
     `;
 
     /* Dynamic Date tabs */
-    const todayISOStr = new Date().toISOString().split('T')[0];
-    const tabsHTML = availableDates.map(dateStr => {
+    // Filter to an operational 5-day horizon window centered on Today (Yesterday, Today, +1d, +2d, +3d)
+    let displayDates = availableDates.filter(d => {
+        const item = predictionsSummaryData[d];
+        if (item && typeof item.horizon === 'number') {
+            return item.horizon >= -1 && item.horizon <= 3;
+        }
+        const diffDays = Math.round((new Date(d + 'T00:00:00') - new Date(todayDateStr + 'T00:00:00')) / 86400000);
+        return diffDays >= -1 && diffDays <= 3;
+    });
+
+    if (!displayDates.length) {
+        displayDates = availableDates.slice(-5);
+    }
+
+    // Ensure currently selected activePredictionDate is visible if selected from historical timeline
+    if (activePredictionDate && !displayDates.includes(activePredictionDate) && availableDates.includes(activePredictionDate)) {
+        displayDates.push(activePredictionDate);
+        displayDates.sort();
+    }
+
+    const tabsHTML = displayDates.map(dateStr => {
         const isActive = dateStr === activePredictionDate;
-        const isToday = dateStr === todayISOStr;
+        const isToday = dateStr === todayDateStr;
         const daySum = predictionsSummaryData[dateStr] || {};
+        
+        // Calculate horizon offset
+        const horizon = typeof daySum.horizon === 'number'
+            ? daySum.horizon
+            : Math.round((new Date(dateStr + 'T00:00:00') - new Date(todayDateStr + 'T00:00:00')) / 86400000);
+
+        // Warning state
         const warnClass = daySum.warning ? daySum.warning.class : 'safe';
-        const hasDot = !isActive && warnClass && warnClass !== 'safe';
-        const dotColor = warnClass === 'critical' ? '#dc2626' : '#f59e0b';
-        const dayLabel = isToday ? '\ud83d\udccd Today' : formatForecastDate(dateStr);
-        return `<button data-action="date" data-date="${dateStr}" style="
-            flex:1;padding:5px 0;font-size:${isToday ? '10.5' : '11'}px;font-family:inherit;font-weight:${isToday ? '800' : '700'};
-            border-radius:6px;border:none;cursor:pointer;transition:all 0.15s ease;
-            background:${isActive ? (activePredictionTab === 'surge' ? '#0284c7' : '#059669') : 'transparent'};
-            color:${isActive ? '#fff' : (hasDot ? dotColor : '#64748b')};
-            ${isActive ? 'box-shadow:0 1px 4px rgba(15,23,42,0.15);' : ''}
-            position:relative;
-        ">${dayLabel}${hasDot ? `<span style="position:absolute;top:3px;right:4px;width:5px;height:5px;border-radius:50%;background:${dotColor};display:inline-block;"></span>` : ''}</button>`;
+        const hasWarning = warnClass && warnClass !== 'safe';
+        const warnColor = warnClass === 'critical' ? '#dc2626' : '#f59e0b';
+
+        // Horizon badge label
+        let horizonLabel = '';
+        if (isToday || horizon === 0) {
+            horizonLabel = 'TODAY';
+        } else if (horizon === -1 || daySum.is_historical) {
+            horizonLabel = 'YDAY';
+        } else if (horizon === 1) {
+            horizonLabel = '+1d TOM';
+        } else if (horizon > 1) {
+            horizonLabel = `+${horizon}d`;
+        } else {
+            horizonLabel = `${horizon}d`;
+        }
+
+        // Calendar label e.g. "15 Sep"
+        const parts = dateStr.split('-');
+        let shortDateStr = dateStr;
+        if (parts.length === 3) {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const m = months[parseInt(parts[1], 10) - 1] || '';
+            const dayNum = parseInt(parts[2], 10);
+            shortDateStr = `${dayNum} ${m}`;
+        }
+
+        const themeClass = activePredictionTab === 'surge' ? 'surge-theme' : 'weather-theme';
+
+        return `
+            <button 
+                data-action="date" 
+                data-date="${dateStr}" 
+                class="date-horizon-btn ${isActive ? 'active ' + themeClass : ''} ${isToday ? 'is-today' : ''}"
+                title="${dateStr}: ${horizonLabel} (${daySum.prediction || 'Normal'})"
+            >
+                <span class="date-horizon-badge">
+                    ${isToday ? '<span class="horizon-live-dot"></span>' : ''}${horizonLabel}
+                </span>
+                <span class="date-horizon-day">
+                    ${shortDateStr}
+                </span>
+                ${hasWarning ? `<span class="date-horizon-warning-dot" style="background:${warnColor};"></span>` : ''}
+            </button>
+        `;
     }).join('');
 
     let tabBodyHTML = '';
@@ -1908,29 +2014,43 @@ function renderPredictionWidget() {
         // Atmospheric Advisory
         const advisoryText = summary.advisory || rec.advisory || null;
 
+        // Subtitle indicator
+        let dateSubtitleTag = '';
+        if (summary.is_today || activePredictionDate === todayDateStr) {
+            dateSubtitleTag = ' (Today)';
+        } else if (summary.is_historical || (typeof summary.horizon === 'number' && summary.horizon < 0)) {
+            dateSubtitleTag = ' (Observed)';
+        } else if (typeof summary.horizon === 'number' && summary.horizon > 0) {
+            dateSubtitleTag = ` (+${summary.horizon}d Forecast)`;
+        }
+
         tabBodyHTML = `
             <!-- NWP Source & Dynamic Date Pill -->
             <div class="nwp-badge-wrapper">
-                <div class="nwp-source-badge">
-                    <span class="nwp-live-dot"></span> Calibrated NWP Heatwave Model
+                <div class="nwp-source-badge" style="${summary.is_historical ? 'background:#f1f5f9;border-color:#cbd5e1;color:#475569;' : ''}">
+                    <span class="nwp-live-dot" style="${summary.is_historical ? 'background:#94a3b8;box-shadow:none;' : ''}"></span>
+                    ${summary.is_historical ? '⏪ Historical record' : '● Live NWP forecast (Open-Meteo)'}
                 </div>
                 <div style="text-align:right;">
                     ${summary.seasonal_context ? `<div style="font-size:10px;font-weight:800;color:${summary.monsoon_suppression ? '#0d9488' : '#64748b'};">${summary.seasonal_context}</div>` : ''}
-                    <div style="font-size:9px;color:#94a3b8;font-weight:600;">${formatForecastFullDate(activePredictionDate)}</div>
+                    <div style="font-size:9px;color:#94a3b8;font-weight:600;">
+                        ${formatForecastFullDate(activePredictionDate)}${dateSubtitleTag}
+                    </div>
                 </div>
             </div>
 
-            <!-- Date Horizon Tabs -->
-            <div style="display:flex;gap:3px;background:#f1f5f9;padding:3px;border-radius:8px;margin-bottom:10px;border:1px solid #e2e8f0;">
+            <!-- Date Horizon Tabs Segmented Control -->
+            <div class="date-horizon-segment" style="grid-template-columns: repeat(${displayDates.length}, minmax(0, 1fr));">
                 ${tabsHTML}
             </div>
 
             <!-- Heatwave Probability & Campus Spatial Risk -->
             <div class="heatwave-summary-card">
                 <div class="heatwave-metric-col" style="border-right: 1px solid #e2e8f0; padding-right: 8px;">
-                    <div style="font-size:9.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">Heatwave Risk</div>
-                    <div style="font-size:22px;font-weight:800;color:${badgeColor};margin-top:2px;">${probPct}%</div>
-                    <div style="display:inline-flex;align-items:center;margin-top:4px;padding:2px 7px;border-radius:999px;font-size:9.5px;font-weight:800;background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};">
+                    <div style="font-size:9.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">${summary.is_today ? 'Today Heatwave Risk' : 'Heatwave Risk'}</div>
+                    <div style="font-size:24px;font-weight:800;color:${badgeColor};margin-top:2px;letter-spacing:-0.03em;">${hasForecastProbability ? `${probPct}%` : 'Now'}</div>
+                    ${hasForecastProbability ? `<div style="height:5px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin:6px 0 4px;width:100%;"><div style="height:100%;width:${Math.max(Number(probPct), 2)}%;background:${isHeatwave ? 'linear-gradient(90deg, #f59e0b, #dc2626)' : 'linear-gradient(90deg, #34d399, #059669)'};border-radius:999px;transition:width 0.6s ease;"></div></div>` : `<div style="font-size:8.5px;color:#64748b;line-height:1.25;margin:5px 0 4px;">Live observation stream updating...</div>`}
+                    <div style="display:inline-flex;align-items:center;margin-top:2px;padding:2.5px 8px;border-radius:999px;font-size:9.5px;font-weight:800;background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};">
                         ${summary.prediction || (isHeatwave ? 'HEATWAVE' : 'NO HEATWAVE')}
                     </div>
                 </div>
@@ -1961,8 +2081,8 @@ function renderPredictionWidget() {
 
             <!-- Rain Probability, Precipitation & Feels-Like Row -->
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
-                <div style="background:${(summary.rain_probability||0) >= 40 ? '#eff6ff' : '#f8fafc'};border:1px solid ${(summary.rain_probability||0) >= 40 ? '#bfdbfe' : '#e2e8f0'};border-radius:8px;padding:7px 8px;text-align:center;cursor:help;" title="${summary.rain_probability_note || `Daily PoP: ${summary.rain_probability}%. Peak hourly convective rain risk reaches ${summary.rain_probability_peak_pct || summary.rain_probability}% around ${summary.rain_probability_peak_hour || '15:00'} IST.`}">
-                    <div style="font-size:8.5px;color:${(summary.rain_probability||0) >= 40 ? '#1d4ed8' : '#64748b'};font-weight:700;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:3px;">\ud83c\udf27\ufe0f Rain Prob</div>
+                <div style="background:${(summary.rain_probability||0) >= 40 ? '#eff6ff' : '#f8fafc'};border:1px solid ${(summary.rain_probability||0) >= 40 ? '#bfdbfe' : '#e2e8f0'};border-radius:8px;padding:7px 8px;text-align:center;cursor:help;" title="${summary.rain_probability_note || `Peak hourly precipitation probability: ${summary.rain_probability_peak_pct || summary.rain_probability}% around ${summary.rain_probability_peak_hour || '15:00'} IST.`}">
+                    <div style="font-size:8.5px;color:${(summary.rain_probability||0) >= 40 ? '#1d4ed8' : '#64748b'};font-weight:700;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:3px;">🌧️ Peak Hourly PoP</div>
                     <div style="font-size:16px;font-weight:800;color:${(summary.rain_probability||0) >= 40 ? '#1e40af' : '#0f172a'};"> ${summary.rain_probability !== undefined ? Math.round(summary.rain_probability) + '%' : '--'}</div>
                     ${summary.rain_probability_peak_pct ? `<div style="font-size:8px;color:#64748b;font-weight:600;margin-top:2px;">Peak ${Math.round(summary.rain_probability_peak_pct)}% (${(summary.rain_probability_peak_hour || '15:00').replace(':00','h')})</div>` : ''}
                 </div>
@@ -2193,8 +2313,8 @@ function renderPredictionWidget() {
                     ℹ️ <em>Catchment Scope: AIIMS BBSR & AMRI are excluded because their pan-India/state-level draw exceeds our local 3 km² population raster.</em>
                 </div>
 
-                <!-- Date Tabs -->
-                <div style="display:flex;gap:3px;background:#f1f5f9;padding:3px;border-radius:8px;margin-bottom:10px;border:1px solid #e2e8f0;">
+                <!-- Date Horizon Tabs Segmented Control -->
+                <div class="date-horizon-segment" style="grid-template-columns: repeat(${displayDates.length}, minmax(0, 1fr));">
                     ${tabsHTML}
                 </div>
 

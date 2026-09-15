@@ -1,4 +1,5 @@
-horizon,v2_accuracy,v2_precision,v2_recall,v2_f1,v2_pr_auc,v2_brier,v2_far,v2_miss_rate,v1_accuracy,v1_precision,v1_recall,v1_f1
-1,0.9516,0.5263,0.4,0.4545,0.464,0.0348,0.0191,0.6,0.923,0.632,0.741,0.68
-2,0.9475,0.4706,0.32,0.381,0.4199,0.0374,0.0191,0.68,0.911,0.577,0.741,0.65
-3,0.9413,0.375,0.24,0.2927,0.4027,0.038,0.0213,0.76,0.893,0.514,0.704,0.59
+horizon,horizon_label,optimal_threshold,v2_accuracy,v2_roc_auc,v2_precision,v2_recall,v2_f1,v2_pr_auc,v2_brier,v2_far,v2_miss_rate,evaluation_scope
+0,H0_Nowcast,0.35,0.9497,0.974,0.5,0.68,0.5763,0.5923,0.0315,0.036,0.32,"temporal holdout validation (Train <= 2024, Test 2025-2026)"
+1,H1_Forecast,0.4,0.9476,0.9639,0.4828,0.56,0.5185,0.4638,0.0368,0.0318,0.44,"temporal holdout validation (Train <= 2024, Test 2025-2026)"
+2,H2_Forecast,0.5,0.9515,0.9593,0.5185,0.56,0.5385,0.4392,0.0387,0.0277,0.44,"temporal holdout validation (Train <= 2024, Test 2025-2026)"
+3,H3_Forecast,0.5,0.9514,0.9619,0.5172,0.6,0.5556,0.4589,0.0366,0.0299,0.4,"temporal holdout validation (Train <= 2024, Test 2025-2026)"

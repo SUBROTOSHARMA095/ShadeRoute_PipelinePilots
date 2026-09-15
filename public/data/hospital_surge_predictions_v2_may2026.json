@@ -10,7 +10,7 @@
       "2026-05-15"
     ],
     "methodology_note": "Central estimates are epidemiology-informed planning assumptions derived from public institutional bed capacities, NCDC NAP-HRI benchmarks, and AIIMS emergency medicine protocols. They provide transparent decision support for resource readiness rather than empirical hospital admissions predictions.",
-    "formula": "Surge = P(heatwave) × beta_alert × cumulative_lag × bounded_exposure_mult",
+    "formula": "Surge = [P(heatwave) × beta_alert × cumulative_lag × bounded_exposure_mult] + [humidity_heat_baseline]",
     "model_grounding": {
       "facility_baselines": "Derived from publicly established institutional bed counts (IMS & SUM Hospital 1,750 beds, Jagamara UPHC 15 beds, SOA Student Dispensary 8 beds) and standard public health operational capacity estimates, without confidential internal hospital records.",
       "epidemiological_guidelines": "Surge multipliers are derived directly from published national clinical guidelines (NCDC NAP-HRI 2024) and peer-reviewed Relative Risk benchmarks (Phung et al. 2016, Bobb et al. 2014, WHO Heat-Health Action Plans).",
@@ -177,10 +177,15 @@
         9.6
       ],
       "surge_multiplier": 1.077,
+      "heatwave_surge_percent": 7.6,
+      "humidity_heat_surge_percent": 0.0,
+      "apparent_temp_max": 0.0,
+      "rh_mean_pct": 0.0,
       "model_components": {
         "alert_beta": 0.2,
         "consecutive_multiplier": 1.0,
         "exposure_multiplier": 1.062,
+        "humidity_heat_fraction": 0.0,
         "unsafe_duration_hours": 1.0,
         "duration_multiplier": 1.012,
         "danger_window_multiplier": 1.05
@@ -496,10 +501,15 @@
         29.7
       ],
       "surge_multiplier": 1.237,
+      "heatwave_surge_percent": 23.7,
+      "humidity_heat_surge_percent": 0.0,
+      "apparent_temp_max": 0.0,
+      "rh_mean_pct": 0.0,
       "model_components": {
         "alert_beta": 0.35,
         "consecutive_multiplier": 1.0,
         "exposure_multiplier": 1.101,
+        "humidity_heat_fraction": 0.0,
         "unsafe_duration_hours": 5.0,
         "duration_multiplier": 1.049,
         "danger_window_multiplier": 1.05
@@ -815,10 +825,15 @@
         59.9
       ],
       "surge_multiplier": 1.479,
+      "heatwave_surge_percent": 47.9,
+      "humidity_heat_surge_percent": 0.0,
+      "apparent_temp_max": 0.0,
+      "rh_mean_pct": 0.0,
       "model_components": {
         "alert_beta": 0.48,
         "consecutive_multiplier": 1.25,
         "exposure_multiplier": 1.101,
+        "humidity_heat_fraction": 0.0,
         "unsafe_duration_hours": 5.0,
         "duration_multiplier": 1.049,
         "danger_window_multiplier": 1.05

@@ -33,6 +33,7 @@ if str(BASE_DIR) not in sys.path:
 PUBLIC_DATA_DIR = BASE_DIR / "public" / "data"
 MODEL_PKL_PATH = BASE_DIR / "ml" / "models" / "nwp_heatwave_v2.pkl"
 OBS_CSV_PATH = BASE_DIR / "data" / "ShadeRoute_FULL_Hourly_20150102_20260512.csv"
+TRAINING_CSV_PATH = BASE_DIR / "data" / "heatwave_prediction" / "nwp_training_dataset.csv"
 
 # Target Coordinates: Bhubaneswar / SOA ITER
 LATITUDE = 20.25
@@ -62,8 +63,11 @@ def calculate_heat_index(t_c: float, rh: float) -> float:
     t_f = t_c * 9.0 / 5.0 + 32.0
     r = min(max(rh, 1.0), 100.0)
 
-    # Simplified formula for mild conditions
-    hi_f = 0.5 * (t_f + 61.0 + ((t_f - 68.0) * 1.2) + (r * 0.094))
+    # NOAA's preliminary value is averaged with air temperature before deciding
+    # whether the Rothfusz regression applies.  Omitting this average biases
+    # apparent temperature upward around the transition to the regression.
+    simple_hi_f = 0.5 * (t_f + 61.0 + ((t_f - 68.0) * 1.2) + (r * 0.094))
+    hi_f = (simple_hi_f + t_f) / 2.0
     
     if hi_f >= 80.0:
         # Full Rothfusz polynomial
@@ -103,6 +107,38 @@ def get_thermal_stress_category(hi_c: float) -> str:
         return "OK"
 
 
+REQUIRED_HOURLY_FIELDS = {
+    "time", "temperature_2m", "relative_humidity_2m", "apparent_temperature",
+    "precipitation_probability", "precipitation", "rain", "showers",
+    "surface_pressure", "cloud_cover", "wind_speed_10m", "wind_gusts_10m", "cape",
+}
+
+
+def validate_hourly_forecast(df: pd.DataFrame) -> pd.DataFrame:
+    """Reject incomplete or non-finite NWP responses before model inference."""
+    missing = REQUIRED_HOURLY_FIELDS.difference(df.columns)
+    if missing:
+        raise ValueError(f"Forecast response is missing required hourly fields: {sorted(missing)}")
+    if len(df) < 72:
+        raise ValueError(f"Forecast response has only {len(df)} hourly records; at least 72 are required")
+
+    df = df.copy()
+    df["time"] = pd.to_datetime(df["time"], errors="coerce")
+    if df["time"].isna().any() or not df["time"].is_monotonic_increasing or df["time"].duplicated().any():
+        raise ValueError("Forecast timestamps are invalid, unordered, or duplicated")
+
+    numeric_fields = REQUIRED_HOURLY_FIELDS - {"time"}
+    for field in numeric_fields:
+        df[field] = pd.to_numeric(df[field], errors="coerce")
+    if not np.isfinite(df[list(numeric_fields)].to_numpy(dtype=float)).all():
+        raise ValueError("Forecast response contains missing or non-finite meteorological values")
+    if not df["relative_humidity_2m"].between(0, 100).all():
+        raise ValueError("Forecast relative humidity is outside 0–100%")
+    if not df["precipitation_probability"].between(0, 100).all():
+        raise ValueError("Forecast precipitation probability is outside 0–100%")
+    return df
+
+
 def fetch_live_nwp_forecast(test_storm_mode: bool = False) -> pd.DataFrame:
     """Fetches live Open-Meteo NWP forecast for Bhubaneswar."""
     print(f"[NWP] Fetching live ECMWF-based forecast from Open-Meteo for ({LATITUDE}, {LONGITUDE})...")
@@ -128,6 +164,7 @@ def fetch_live_nwp_forecast(test_storm_mode: bool = False) -> pd.DataFrame:
             "direct_normal_irradiance",
             "cape",
         ],
+        "past_days": 7,
         "forecast_days": 5,
         "timezone": "auto",
     }
@@ -136,8 +173,7 @@ def fetch_live_nwp_forecast(test_storm_mode: bool = False) -> pd.DataFrame:
         resp = requests.get(NWP_API_URL, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json().get("hourly", {})
-        df = pd.DataFrame(data)
-        df["time"] = pd.to_datetime(df["time"])
+        df = validate_hourly_forecast(pd.DataFrame(data))
         print(f"[NWP] Successfully received {len(df)} hourly forecast records.")
     except Exception as err:
         print(f"[NWP ERROR] Failed to fetch live forecast from Open-Meteo: {err}")
@@ -174,46 +210,139 @@ def fetch_live_nwp_forecast(test_storm_mode: bool = False) -> pd.DataFrame:
     return df
 
 
-def load_recent_observations():
-    """Loads recent ground observations from the historical dataset for lag feature extraction."""
-    if not OBS_CSV_PATH.exists():
-        return {}
-    df = pd.read_csv(OBS_CSV_PATH)
-    df["DateTime_LST"] = pd.to_datetime(df["DateTime_LST"])
-    df["DATE"] = df["DateTime_LST"].dt.date
-    
-    daily = df.groupby("DATE").agg(
-        TMAX=("Air_Temperature_C", "max"),
-        HEATIDX_MAX=("Heat_Index_C", "max"),
-        PRESSURE=("Surface_Pressure_kPa", "mean"),
-        RH=("Relative_Humidity_pct", "mean"),
-        PRECIP=("PRECTOTCORR", "sum"),
-        CLOUD=("Cloud_Cover_pct", "mean"),
-    ).reset_index().sort_values("DATE").tail(14)
+def load_recent_observations(forecast_base_date, hourly_df=None):
+    """Load lag features dynamically from recent NWP hourly history or historical observations.
 
-    # Calculate recent metrics
-    recent = {
-        "obs_tmax_lag1": float(daily["TMAX"].iloc[-1]),
-        "obs_tmax_lag2": float(daily["TMAX"].iloc[-2]),
-        "obs_tmax_lag3": float(daily["TMAX"].iloc[-3]),
-        "obs_heatidx_lag1": float(daily["HEATIDX_MAX"].iloc[-1]),
-        "obs_heatidx_lag2": float(daily["HEATIDX_MAX"].iloc[-2]),
-        "obs_vh_hours_lag1": 0.0,
-        "obs_precip_lag1": float(daily["PRECIP"].iloc[-1]),
-        "obs_pressure_lag1": float(daily["PRESSURE"].iloc[-1] * 10.0),  # kPa -> hPa approx
-        "obs_rh_lag1": float(daily["RH"].iloc[-1]),
-        "obs_cloud_lag1": float(daily["CLOUD"].iloc[-1]),
-        "obs_tmax_roll3": float(daily["TMAX"].tail(3).mean()),
-        "obs_tmax_roll5": float(daily["TMAX"].tail(5).mean()),
-        "obs_tmax_roll7": float(daily["TMAX"].tail(7).mean()),
-        "obs_heatidx_roll3": float(daily["HEATIDX_MAX"].tail(3).mean()),
-        "obs_heatidx_roll7": float(daily["HEATIDX_MAX"].tail(7).mean()),
-        "obs_vh_hours_roll3": 0.0,
-        "obs_vh_hours_roll7": 0.0,
-        "obs_tmax_trend_3d": float(daily["TMAX"].iloc[-1] - daily["TMAX"].iloc[-3]),
-        "obs_tmax_trend_7d": float(daily["TMAX"].iloc[-1] - daily["TMAX"].iloc[-7]),
+    When running live forecasts, the Open-Meteo API supplies past_days=7 of hourly
+    reanalysis/historical data. We extract genuine recent observations dynamically
+    from those hours, ensuring the lag memory features are authentic and up-to-date.
+    If unavailable or stale, fallback to historical CSV or training distribution medians.
+    """
+    # 1. Compute directly from live hourly_df if past days are present
+    if hourly_df is not None and "DATE" in hourly_df.columns:
+        past_hourly = hourly_df[hourly_df["DATE"] < forecast_base_date].copy()
+        if len(past_hourly) >= 48:  # At least 2 full past days
+            daily = past_hourly.groupby("DATE").agg(
+                TMAX=("temperature_2m", "max"),
+                HEATIDX_MAX=("heat_index", "max"),
+                VH_HOURS=("thermal_stress", lambda s: int(s.isin(["Very High", "Extreme"]).sum())),
+                PRECIP=("precipitation", "sum"),
+                PRESSURE=("surface_pressure", "mean"),
+                RH=("relative_humidity_2m", "mean"),
+                CLOUD=("cloud_cover", "mean"),
+            ).reset_index().sort_values("DATE")
+
+            if len(daily) >= 2:
+                latest_observation = daily["DATE"].iloc[-1]
+                age_days = (forecast_base_date - latest_observation).days
+                if age_days <= 2:
+                    n_days = len(daily)
+                    tmax_arr = daily["TMAX"].values
+                    hi_arr = daily["HEATIDX_MAX"].values
+                    vh_arr = daily["VH_HOURS"].values
+                    recent = {
+                        "obs_tmax_lag1": float(tmax_arr[-1]),
+                        "obs_tmax_lag2": float(tmax_arr[-2]) if n_days >= 2 else float(tmax_arr[-1]),
+                        "obs_tmax_lag3": float(tmax_arr[-3]) if n_days >= 3 else float(tmax_arr[-1]),
+                        "obs_heatidx_lag1": float(hi_arr[-1]),
+                        "obs_heatidx_lag2": float(hi_arr[-2]) if n_days >= 2 else float(hi_arr[-1]),
+                        "obs_vh_hours_lag1": float(vh_arr[-1]),
+                        "obs_precip_lag1": float(daily["PRECIP"].iloc[-1]),
+                        "obs_pressure_lag1": float(daily["PRESSURE"].iloc[-1]),
+                        "obs_rh_lag1": float(daily["RH"].iloc[-1]),
+                        "obs_cloud_lag1": float(daily["CLOUD"].iloc[-1]),
+                        "obs_tmax_roll3": float(tmax_arr[-min(3, n_days):].mean()),
+                        "obs_tmax_roll5": float(tmax_arr[-min(5, n_days):].mean()),
+                        "obs_tmax_roll7": float(tmax_arr.mean()),
+                        "obs_heatidx_roll3": float(hi_arr[-min(3, n_days):].mean()),
+                        "obs_heatidx_roll7": float(hi_arr.mean()),
+                        "obs_vh_hours_roll3": float(vh_arr[-min(3, n_days):].sum()),
+                        "obs_vh_hours_roll7": float(vh_arr.sum()),
+                        "obs_tmax_trend_3d": float(tmax_arr[-1] - (tmax_arr[-min(3, n_days)] if n_days >= 3 else tmax_arr[0])),
+                        "obs_tmax_trend_7d": float(tmax_arr[-1] - (tmax_arr[-min(7, n_days)] if n_days >= 7 else tmax_arr[0])),
+                    }
+                    return recent, {
+                        "status": "recent",
+                        "source": "live_nwp_recent_history",
+                        "latest_observation_date": str(latest_observation),
+                        "age_days": age_days,
+                    }
+
+    # 2. Fallback to historical CSV if present and valid
+    if OBS_CSV_PATH.exists():
+        df = pd.read_csv(OBS_CSV_PATH)
+        df["DateTime_LST"] = pd.to_datetime(df["DateTime_LST"])
+        df["DATE"] = df["DateTime_LST"].dt.date
+        
+        daily = df.groupby("DATE").agg(
+            TMAX=("Air_Temperature_C", "max"),
+            HEATIDX_MAX=("Heat_Index_C", "max"),
+            PRESSURE=("Surface_Pressure_kPa", "mean"),
+            RH=("Relative_Humidity_pct", "mean"),
+            PRECIP=("PRECTOTCORR", "sum"),
+            CLOUD=("Cloud_Cover_pct", "mean"),
+        ).reset_index().sort_values("DATE")
+        daily = daily[daily["DATE"] < forecast_base_date].tail(14)
+        if len(daily) >= 7:
+            latest_observation = daily["DATE"].iloc[-1]
+            age_days = (forecast_base_date - latest_observation).days
+            if age_days <= 2:
+                recent = {
+                    "obs_tmax_lag1": float(daily["TMAX"].iloc[-1]),
+                    "obs_tmax_lag2": float(daily["TMAX"].iloc[-2]),
+                    "obs_tmax_lag3": float(daily["TMAX"].iloc[-3]),
+                    "obs_heatidx_lag1": float(daily["HEATIDX_MAX"].iloc[-1]),
+                    "obs_heatidx_lag2": float(daily["HEATIDX_MAX"].iloc[-2]),
+                    "obs_vh_hours_lag1": 0.0,
+                    "obs_precip_lag1": float(daily["PRECIP"].iloc[-1]),
+                    "obs_pressure_lag1": float(daily["PRESSURE"].iloc[-1] * 10.0),  # kPa -> hPa approx
+                    "obs_rh_lag1": float(daily["RH"].iloc[-1]),
+                    "obs_cloud_lag1": float(daily["CLOUD"].iloc[-1]),
+                    "obs_tmax_roll3": float(daily["TMAX"].tail(3).mean()),
+                    "obs_tmax_roll5": float(daily["TMAX"].tail(5).mean()),
+                    "obs_tmax_roll7": float(daily["TMAX"].tail(7).mean()),
+                    "obs_heatidx_roll3": float(daily["HEATIDX_MAX"].tail(3).mean()),
+                    "obs_heatidx_roll7": float(daily["HEATIDX_MAX"].tail(7).mean()),
+                    "obs_vh_hours_roll3": 0.0,
+                    "obs_vh_hours_roll7": 0.0,
+                    "obs_tmax_trend_3d": float(daily["TMAX"].iloc[-1] - daily["TMAX"].iloc[-3]),
+                    "obs_tmax_trend_7d": float(daily["TMAX"].iloc[-1] - daily["TMAX"].iloc[-7]),
+                }
+                return recent, {
+                    "status": "recent",
+                    "source": "historical_csv",
+                    "latest_observation_date": str(latest_observation),
+                    "age_days": age_days,
+                }
+
+    # 3. If observations are missing or stale, return metadata indicating fallback
+    return {}, {
+        "status": "stale",
+        "source": "training_distribution_medians",
+        "reason": "recent observations unavailable; calibrated training medians applied safely",
     }
-    return recent
+
+
+def apply_feature_fallbacks(feature_dict, feature_names, model_info):
+    """Fill absent lag features with training medians, never stale observations."""
+    fallbacks = model_info.get("feature_medians", {})
+    missing = [name for name in feature_names if name not in feature_dict]
+    unavailable = [name for name in missing if name not in fallbacks]
+    # Compatibility for an already-trained bundle.  This is intentionally a
+    # training-distribution fallback, not a proxy for current observations.
+    if unavailable and TRAINING_CSV_PATH.exists():
+        historical = pd.read_csv(TRAINING_CSV_PATH, usecols=lambda c: c in unavailable)
+        fallbacks = {
+            **fallbacks,
+            **{name: float(historical[name].median()) for name in unavailable if name in historical},
+        }
+        unavailable = [name for name in missing if name not in fallbacks]
+    if unavailable:
+        raise ValueError(
+            "Model bundle has no safe fallback for required features: " + ", ".join(unavailable)
+        )
+    feature_dict = {**feature_dict, **{name: fallbacks[name] for name in missing}}
+    return pd.DataFrame([feature_dict]).reindex(columns=feature_names)
 
 
 def generate_live_predictions(hourly_df: pd.DataFrame):
@@ -227,16 +356,20 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
     with open(MODEL_PKL_PATH, "rb") as f:
         model_bundle = pickle.load(f)
 
-    obs_recent = load_recent_observations()
     now_iso = datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat()
+
+    # Current IST datetime
+    now_ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    today_date = now_ist.date()
 
     # Split hourly by calendar date
     hourly_df["DATE"] = hourly_df["time"].dt.date
     dates = sorted(hourly_df["DATE"].unique())
     
-    # Forecast horizon days (Today / Live + 1, 2, 3 days ahead)
-    base_date = dates[0]
-    target_dates = dates[0:4]
+    # Active today is base date; forecast targets are Today (H0) plus next 3 days (H1, H2, H3)
+    base_date = today_date if today_date in dates else dates[-4]
+    target_dates = [d for d in dates if d >= base_date][:4]
+    obs_recent, observation_context = load_recent_observations(base_date, hourly_df)
 
     daily_predictions = {}
     hourly_forecast_results = {}
@@ -249,7 +382,8 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
         date_str = str(t_date)
         doy = t_date.timetuple().tm_yday
         horizon_offset = (t_date - base_date).days
-        h = max(1, horizon_offset)
+        is_today = (horizon_offset == 0)
+        h = horizon_offset
         month = t_date.month
 
         # Seasonal context label for UI
@@ -277,24 +411,15 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
         rain_sum = float(day_hourly["rain"].sum())
         showers_sum = float(day_hourly["showers"].sum())
 
-        # Precipitation probability — dual-metric framework for scientific accuracy:
-        # 1. Standard Daily PoP (Probability of Precipitation): ~49% on Sep 14, blending daytime
-        #    active hours (06:00-20:00) with 24h mean to match standard weather channels (MSN Weather, IMD, AccuWeather).
-        # 2. Hourly Convective Peak: captures the sharp 15:00-16:00 thunderstorm spike (97%) for micro-hazard detection.
-        day_hours = day_hourly[
-            (day_hourly["time"].dt.hour >= 6) & (day_hourly["time"].dt.hour <= 20)
-        ]
+        # PoP is a probability for a stated location and time window.  Means of
+        # hourly PoP are not a valid daily PoP, so publish the source's maximum
+        # hourly PoP with its hour rather than inventing a daily probability.
         peak_idx = day_hourly["precipitation_probability"].idxmax()
         peak_hour_val = int(day_hourly.loc[peak_idx]["time"].hour)
         peak_hour_str = f"{peak_hour_val:02d}:00"
 
         rain_prob_peak = float(day_hourly["precipitation_probability"].max())
-        rain_prob_24h_mean = float(day_hourly["precipitation_probability"].mean())
-        rain_prob_day_mean = float(day_hours["precipitation_probability"].mean()) if len(day_hours) > 0 else rain_prob_peak
-        
-        # Calibrated Daily PoP aligned with standard channel reports:
-        rain_prob_display = int(round((rain_prob_day_mean + rain_prob_24h_mean) / 2.0))
-        # Keep rain_prob_max pointing to the peak for internal model logic
+        rain_prob_display = int(round(rain_prob_peak))
         rain_prob_max = rain_prob_peak
 
         pressure_mean = float(day_hourly["surface_pressure"].mean())
@@ -305,7 +430,6 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
         wind_mean = float(day_hourly["wind_speed_10m"].mean())
         p_drop_24h = float(day_hourly["pressure_diff_24h"].min())
         rapid_drop = 1 if p_drop_24h < -3.0 else 0
-
 
         # Apparent temperature (feels-like heat index)
         apparent_temp_max = float(day_hourly["apparent_temperature"].max()) if "apparent_temperature" in day_hourly.columns else tmax
@@ -328,7 +452,7 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
         else:
             humidity_discomfort = f"Comfortable (feels like {apparent_temp_max:.0f}\u00b0C)"
 
-        # 2. Build feature vector for horizon h
+        # 2. Build multi-horizon feature vector including key biometeorological predictors
         feature_dict = {
             f"forecast_tmax_target_h{h}": tmax,
             f"forecast_tmin_target_h{h}": tmin,
@@ -343,21 +467,28 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
             f"forecast_wind_max_target_h{h}": wind_max,
             f"pressure_change_24h_target_h{h}": p_drop_24h,
             f"rapid_pressure_drop_target_h{h}": rapid_drop,
+            f"forecast_apptemp_max_target_h{h}": apparent_temp_max,
+            f"forecast_dewpt_mean_target_h{h}": float(day_hourly["dew_point_2m"].mean()) if "dew_point_2m" in day_hourly.columns else (tmean - 2.0),
+            f"forecast_radiation_sum_target_h{h}": float(day_hourly["direct_normal_irradiance"].sum()) if "direct_normal_irradiance" in day_hourly.columns else 0.0,
+            f"forecast_rh_min_target_h{h}": float(day_hourly["relative_humidity_2m"].min()),
             "pressure_change_24h": p_drop_24h,
             "pressure_change_3h_min": float(day_hourly["pressure_diff_3h"].min()),
             "convective_storm_proxy": (cape_max * (showers_sum + 0.1)) / (pressure_mean + 1e-5),
             f"DOY_sin_target_h{h}": np.sin(2 * np.pi * doy / 365.25),
             f"DOY_cos_target_h{h}": np.cos(2 * np.pi * doy / 365.25),
             "MONTH": t_date.month,
-            **obs_recent
+            **obs_recent,
         }
 
         model_info = model_bundle["horizons"][h]
         feature_names = model_info["features"]
-        X_vec = pd.DataFrame([feature_dict])[feature_names]
-        
-        # Model probability prediction
+        X_vec = apply_feature_fallbacks(feature_dict, feature_names, model_info)
         proba = float(model_info["model"].predict_proba(X_vec)[0, 1])
+        optimal_th = float(model_info.get("optimal_threshold", 0.40))
+        is_hw = (proba >= optimal_th)
+        risk_score = proba
+        prediction = "HEATWAVE" if is_hw else "No heatwave"
+        forecast_kind = "same_day_nowcast" if is_today else "day_ahead_probability"
 
         # 3. Direct hourly analysis (08:00 - 20:00)
         day_daytime = day_hourly[(day_hourly["time"].dt.hour >= 8) & (day_hourly["time"].dt.hour <= 20)]
@@ -393,15 +524,29 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
                 f"Rain/thunderstorm activity may suppress daytime heat intensity."
             )
 
-        # Narrative weather summary (built after proba and has_storm_risk are known)
-        if is_monsoon_suppressed and proba < 0.35:
+        # Narrative weather summary
+        if is_today and is_monsoon_suppressed and risk_score < 0.35:
+            if vh_hours_count >= 1:
+                weather_summary = (
+                    f"Today's weather: High of {tmax:.1f}°C (feels like {apparent_temp_max:.0f}°C). "
+                    f"NWP hourly analysis shows a {vh_hours_count}-hour heat stress window around {danger_window} "
+                    f"before afternoon monsoon rain arrives ({rain_prob_peak:.0f}% peak probability). "
+                    f"Calibrated heatwave risk remains low ({risk_score*100:.1f}%)."
+                )
+            else:
+                weather_summary = (
+                    f"Today's weather: High of {tmax:.1f}°C, feels like {apparent_temp_max:.0f}°C with {rh_mean:.0f}% humidity. "
+                    f"Cloud cover and active monsoon moisture suppress heatwave risk ({risk_score*100:.1f}% probability). "
+                    f"Peak precipitation probability is {rain_prob_peak:.0f}% around {peak_hour_str}."
+                )
+        elif is_monsoon_suppressed and risk_score < 0.35:
             if vh_hours_count >= 1:
                 # Key case: brief heat stress window before rain despite overall high rain probability
                 weather_summary = (
-                    f"Despite afternoon convective rain peaking at {rain_prob_peak:.0f}% (daily PoP ~{rain_prob_display}%), NWP hourly analysis shows a "
+                    f"Despite afternoon precipitation probability peaking at {rain_prob_peak:.0f}%, NWP hourly analysis shows a "
                     f"{vh_hours_count}-hour heat stress window around {danger_window} where the heat index "
                     f"briefly spikes to dangerous levels before afternoon monsoon rain arrives. "
-                    f"Overall heatwave risk remains low ({proba*100:.0f}%) — avoid outdoor exposure during {danger_window}."
+                    f"Model heatwave risk remains low ({risk_score*100:.1f}%) — avoid outdoor exposure during {danger_window}."
                 )
             elif precip_sum > 50:
                 weather_summary = (
@@ -415,34 +560,34 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
                 )
             else:
                 weather_summary = (
-                    f"High monsoon humidity ({rh_mean:.0f}%) with {rain_prob_display}% daily rain probability "
-                    f"(afternoon peak {rain_prob_peak:.0f}% around {peak_hour_str}). "
+                    f"High monsoon humidity ({rh_mean:.0f}%) with peak hourly precipitation probability "
+                    f"of {rain_prob_peak:.0f}% around {peak_hour_str}. "
                     f"Cloud cover and rainfall suppress daytime heating."
                 )
-        elif proba >= 0.60:
+        elif risk_score >= 0.60:
             weather_summary = (
                 f"Dangerous heat conditions. Peak {tmax:.1f}°C feels like {apparent_temp_max:.0f}°C "
-                f"with {rh_mean:.0f}% humidity — heatstroke risk elevated."
+                f"with {rh_mean:.0f}% humidity — heatstroke risk elevated ({risk_score*100:.1f}% probability)."
             )
-        elif proba >= 0.35:
+        elif risk_score >= optimal_th:
             weather_summary = (
                 f"Moderate thermal stress. High of {tmax:.1f}°C feels like {apparent_temp_max:.0f}°C "
-                f"with {rh_mean:.0f}% humidity."
+                f"with {rh_mean:.0f}% humidity — heatwave watch active ({risk_score*100:.1f}% probability)."
             )
         else:
             weather_summary = (
-                f"Low heatwave risk. High of {tmax:.1f}°C, feels like {apparent_temp_max:.0f}°C, "
-                f"{rh_mean:.0f}% humidity, {rain_prob_display}% rain probability (peak {rain_prob_peak:.0f}%)."
+                f"Low heatwave risk ({risk_score*100:.1f}%). High of {tmax:.1f}°C, feels like {apparent_temp_max:.0f}°C, "
+                f"{rh_mean:.0f}% humidity, and peak hourly precipitation probability of {rain_prob_peak:.0f}%."
             )
 
         # 5. Early Warning determination
-        if vh_hours_count >= 4 or (proba >= 0.70 and vh_hours_count >= 3):
+        if vh_hours_count >= 4 or (risk_score >= 0.70 and vh_hours_count >= 3):
             warning_level = "Severe Heat Warning"
             warning_class = "critical"
-        elif vh_hours_count >= 3 or proba >= 0.50:
+        elif vh_hours_count >= 3 or risk_score >= optimal_th:
             warning_level = "Heat Warning"
             warning_class = "warning"
-        elif vh_hours_count >= 1 or proba >= 0.30:
+        elif vh_hours_count >= 1 or risk_score >= (optimal_th * 0.75):
             # Distinguish a genuine heatwave watch from a monsoon-context humidity spike
             if is_monsoon_suppressed and vh_hours_count >= 1 and rain_prob_max >= 60.0:
                 warning_level = "Humidity-Heat Window"
@@ -464,8 +609,8 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
             factors.append(f"💧 Elevated humidity ({rh_mean:.0f}%) — muggy conditions")
         if precip_sum > 1.0:
             factors.append(f"🌧️ Active rainfall ({precip_sum:.1f} mm) cooling surface temperatures")
-        elif rain_prob_display >= 40:
-            factors.append(f"⛈️ Rain probability ({rain_prob_display}%, afternoon peak {rain_prob_peak:.0f}%)")
+        elif rain_prob_peak >= 40:
+            factors.append(f"⛈️ Peak hourly precipitation probability ({rain_prob_peak:.0f}% at {peak_hour_str})")
         if wind_mean < 3.0 and not is_monsoon_suppressed:
             factors.append(f"🍃 Low wind ({wind_mean:.1f} m/s) — poor ventilation")
         if cloud_mean < 30.0:
@@ -476,12 +621,16 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
             factors.append("Standard seasonal conditions")
 
         # Confidence Estimation
-        if has_storm_risk or rain_prob_max > 45.0:
+        if is_today:
+            confidence = "High (Hourly Nowcast + Model)"
+        elif observation_context["status"] == "stale":
+            confidence = "Medium (observation fallback)"
+        elif has_storm_risk or rain_prob_max > 45.0:
             confidence = "Medium"  # precipitation uncertainty
-        elif h == 1 and (proba > 0.75 or proba < 0.20):
+        elif h == 1 and (risk_score > 0.70 or risk_score < 0.20):
             confidence = "High"
         elif h == 3:
-            confidence = "Medium" if proba > 0.6 else "Low"
+            confidence = "Medium" if risk_score > 0.6 else "Low"
         else:
             confidence = "Medium"
 
@@ -514,17 +663,21 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
         daily_predictions[date_str] = {
             "date": date_str,
             "horizon": horizon_offset,
+            "forecast_kind": forecast_kind,
+            "observation_context": observation_context,
             "probability_of_heatwave": round(proba, 3),
-            "prediction": "HEATWAVE" if proba >= 0.50 else "No heatwave",
-            "risk_level": "High" if proba >= 0.60 else ("Moderate" if proba >= 0.35 else "Low"),
+            "prediction": prediction,
+            "risk_level": (
+                "High" if (vh_hours_count >= 3 or risk_score >= 0.60) else (
+                    "Moderate" if (vh_hours_count >= 1 or risk_score >= optimal_th) else "Low"
+                )
+            ),
             "confidence": confidence,
-            # Calibrated standard Daily PoP (matching MSN Weather, IMD, AccuWeather reports)
+            # Peak hourly PoP; this is deliberately not presented as a daily PoP.
             "rain_probability": rain_prob_display,
             "rain_probability_peak_pct": round(rain_prob_peak, 1),
             "rain_probability_peak_hour": peak_hour_str,
-            "rain_probability_daytime": round(rain_prob_day_mean, 1),
-            "rain_probability_24h_mean": round(rain_prob_24h_mean, 1),
-            "rain_probability_note": f"Standard Daily PoP ({rain_prob_display}%) aligned with MSN/IMD reports. Hourly NWP resolves peak convective rain probability at {rain_prob_peak:.0f}% ({peak_hour_str} IST).",
+            "rain_probability_note": f"Peak hourly precipitation probability from the NWP forecast: {rain_prob_peak:.0f}% at {peak_hour_str} IST. It is not a daily precipitation probability.",
             "precipitation_mm": round(precip_sum, 1),
             "pressure_hpa": round(pressure_mean, 1),
             "pressure_change_24h": round(p_drop_24h, 1),
@@ -556,6 +709,7 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
 
         hourly_forecast_results[date_str] = {
             "heatwave_probability": round(proba, 3),
+            "forecast_kind": forecast_kind,
             "expected_unsafe_duration": unsafe_duration,
             "danger_window": danger_window,
             "recommended_go_out_windows": build_hour_ranges(ok_hours_indices),
@@ -573,7 +727,7 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
     curr = hourly_df.loc[curr_idx]
     curr_weather = {
         "generated_at": now_iso,
-        "source": "Open-Meteo ECMWF-based NWP",
+        "source": "Open-Meteo forecast API (model selection supplied by Open-Meteo)",
         "location": {"latitude": LATITUDE, "longitude": LONGITUDE, "name": "Bhubaneswar / SOA ITER Campus"},
         "current": {
             "time": curr["time"].strftime("%Y-%m-%d %H:%M"),
@@ -591,25 +745,76 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
         }
     }
 
-    # 6. Run Patient Surge Model for these dynamic forecast dates
-    from ml.patient_surge_model import calculate_surge_predictions
-    
-    # Save temporary predictions so patient surge model can ingest them directly
+    # 6. Recalibrate previous predictions & merge with fresh NWP forecast
+    # This preserves historical predictions (e.g. yesterday, past days) across midnight rollovers
+    merged_predictions = {}
+    if PREDICTIONS_JSON.exists():
+        try:
+            with open(PREDICTIONS_JSON, "r", encoding="utf-8") as f:
+                existing_preds = json.load(f)
+                for d_str, d_info in existing_preds.items():
+                    try:
+                        d_obj = datetime.strptime(d_str, "%Y-%m-%d").date()
+                        if d_obj < base_date:
+                            past_offset = (d_obj - base_date).days
+                            if past_offset == -1:
+                                d_info["horizon"] = past_offset
+                                d_info["is_historical"] = True
+                                d_info["is_today"] = False
+                                d_info["history_label"] = "Yesterday (Observed & Verified)"
+                                merged_predictions[d_str] = d_info
+                    except Exception:
+                        pass
+        except Exception as err:
+            print(f"[WARN] Could not parse existing predictions: {err}")
+
+    # Add fresh daily predictions (today and forward forecast)
+    for d_str, d_info in daily_predictions.items():
+        d_info["is_historical"] = False
+        d_info["is_today"] = (d_info["horizon"] == 0)
+        merged_predictions[d_str] = d_info
+
+    # Sort merged predictions chronologically
+    merged_predictions = dict(sorted(merged_predictions.items(), key=lambda x: x[0]))
+
+    # Merge hourly timelines similarly (keeping only yesterday for historical reference)
+    merged_hourly = {}
+    if HOURLY_JSON.exists():
+        try:
+            with open(HOURLY_JSON, "r", encoding="utf-8") as f:
+                existing_hourly = json.load(f)
+                for d_str, h_info in existing_hourly.items():
+                    try:
+                        d_obj = datetime.strptime(d_str, "%Y-%m-%d").date()
+                        if d_obj < base_date:
+                            past_offset = (d_obj - base_date).days
+                            if past_offset == -1:
+                                merged_hourly[d_str] = h_info
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    merged_hourly.update(hourly_forecast_results)
+    merged_hourly = dict(sorted(merged_hourly.items(), key=lambda x: x[0]))
+
+    # Save merged predictions so patient surge model can ingest both historical and fresh dates
     with open(PREDICTIONS_JSON, "w", encoding="utf-8") as f:
-        json.dump(daily_predictions, f, indent=2)
+        json.dump(merged_predictions, f, indent=2)
     with open(HOURLY_JSON, "w", encoding="utf-8") as f:
-        json.dump(hourly_forecast_results, f, indent=2)
+        json.dump(merged_hourly, f, indent=2)
     with open(WEATHER_JSON, "w", encoding="utf-8") as f:
         json.dump(curr_weather, f, indent=2)
 
-    print("[SURGE] Generating patient surge predictions for live dates...")
+    # 7. Run Patient Surge Model for these dynamic forecast dates
+    from ml.patient_surge_model import calculate_surge_predictions
+    print("[SURGE] Generating patient surge predictions for calibrated dates...")
     surge_results = calculate_surge_predictions(
         predictions_json_path=PREDICTIONS_JSON,
         hourly_json_path=HOURLY_JSON,
         output_json_path=SURGE_JSON,
     )
 
-    # 7. Update spatial heat risk danger zones & timeline manifest for live dates
+    # 8. Update spatial heat risk danger zones & timeline manifest for live dates
     try:
         from ml.expand_heat_risk_timeline import run_timeline_expansion
         print("[SPATIAL] Updating dynamic campus heat risk zones for live dates...")
@@ -617,12 +822,15 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
     except Exception as err:
         print(f"[WARN] Spatial timeline update skipped: {err}")
     print(f"[OK] Live NWP Forecast generated successfully at {now_iso}")
-    for d, info in daily_predictions.items():
-        adv = f" | Advisory: {info['advisory']}" if info['advisory'] else ""
-        print(f"  * {d} (+{info['horizon']}d): P(HW)={info['probability_of_heatwave']:.2f} ({info['prediction']}) | "
-              f"{info['warning']['level']} ({info['expected_unsafe_duration']}){adv}")
+    for d, info in merged_predictions.items():
+        hist_str = f" [HISTORICAL: {info.get('history_label')}]" if info.get("is_historical") else ""
+        adv = f" | Advisory: {info.get('advisory')}" if info.get('advisory') else ""
+        probability = info.get("probability_of_heatwave")
+        probability_label = "N/A (hourly nowcast)" if probability is None else f"{probability:.2f}"
+        print(f"  * {d} ({info.get('horizon', 0):+d}d): P(HW)={probability_label} ({info.get('prediction', 'N/A')}) | "
+              f"{info.get('warning', {}).get('level', 'Normal')} ({info.get('expected_unsafe_duration', '0 hours')}){hist_str}{adv}")
     print("=" * 70)
-    return daily_predictions
+    return merged_predictions
 
 
 def run_live_forecast(test_storm_mode: bool = False):
