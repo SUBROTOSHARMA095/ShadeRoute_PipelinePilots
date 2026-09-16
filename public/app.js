@@ -2321,7 +2321,7 @@ function renderPredictionWidget() {
                 <!-- Alert Level Banner with Planning Interval -->
                 <div class="surge-alert-banner" style="background:${bannerBg};border:1px solid ${bannerBorder};color:${bannerColor};">
                     <div>
-                        <span style="font-size:13px;">${isRedAlert ? '🔴' : isOrangeAlert ? '🟠' : '🟡'}</span>
+                        <span style="font-size:13px;">${isRedAlert ? '🔴' : isOrangeAlert ? '🟠' : ((surge.alert_level || '').includes('Yellow') ? '🟡' : '🟢')}</span>
                         <span style="font-weight:800;margin-left:4px;">${surge.alert_level}</span>
                     </div>
                     <div style="text-align:right;">

@@ -1,3 +1,8 @@
+import sys
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from pathlib import Path
 import json
 import pandas as pd
@@ -51,6 +56,7 @@ air_temp_csv = resolve_input('SOA_ITER_Neighbour_Air_Temperature_Mar_May_2026_NA
 wind_speed_csv = resolve_input('SOA_ITER_Neighbour_Wind_Speed_Mar_May_2026_NASA_POWER.csv')
 solar_rad_csv = resolve_input('Hourly_Solar_Radiation_March_to_May_2026.csv')
 rh_csv = resolve_input('POWER_Point_Hourly_20260301_20260531_020d25N_085d80E_LST.csv')
+full_hourly_csv = resolve_input('ShadeRoute_FULL_Hourly_20150102_20260512.csv')
 
 # 2. Extract Neighborhood Boundary (2.84 km²)
 if campus_geojson_path.exists():
@@ -203,6 +209,29 @@ def load_hourly_weather():
         direction='nearest',
         tolerance=pd.Timedelta(minutes=30)
     )
+
+    # -----------------------------------------------------
+    # Merge precipitation and cloud cover observations
+    # -----------------------------------------------------
+    if full_hourly_csv.exists():
+        df_full = pd.read_csv(full_hourly_csv)
+        df_full['datetime'] = pd.to_datetime(df_full['DateTime_LST'], errors='coerce')
+        precip_cols = df_full[['datetime', 'PRECTOTCORR', 'Cloud_Cover_pct']].rename(
+            columns={'PRECTOTCORR': 'precipitation_mm', 'Cloud_Cover_pct': 'cloud_cover_pct'}
+        ).dropna(subset=['datetime'])
+        weather = pd.merge_asof(
+            weather.sort_values('datetime'),
+            precip_cols.sort_values('datetime'),
+            on='datetime',
+            direction='nearest',
+            tolerance=pd.Timedelta(minutes=30)
+        )
+        weather['precipitation_mm'] = weather['precipitation_mm'].fillna(0.0)
+        weather['cloud_cover_pct'] = weather['cloud_cover_pct'].fillna(30.0)
+        print(f"✅ Merged precipitation & cloud cover observations from {full_hourly_csv.name}")
+    else:
+        weather['precipitation_mm'] = 0.0
+        weather['cloud_cover_pct'] = 30.0
 
     # -----------------------------------------------------
     # Remove NASA POWER missing-data values
@@ -618,25 +647,12 @@ print(gdf_sectors['vulnerability_class'].value_counts().to_string())
 # 6. Hourly Heat Hazard Calculation
 # ---------------------------------------------------------
 
-def calculate_heat_index(temp_c, rh):
+def calculate_imd_heat_index(temp_c, rh):
     """
-    IMD heat-index equation.
-
-    temp_c : air temperature in Celsius
-    rh     : relative humidity in %
-
-    Returns heat index in Celsius.
+    Standard IMD / Rothfusz heat index equation (°C).
     """
-
-    temp_c = pd.to_numeric(
-        temp_c,
-        errors="coerce"
-    )
-
-    rh = pd.to_numeric(
-        rh,
-        errors="coerce"
-    )
+    temp_c = pd.to_numeric(temp_c, errors="coerce")
+    rh = pd.to_numeric(rh, errors="coerce")
 
     hi = (
         -8.784695
@@ -649,16 +665,137 @@ def calculate_heat_index(temp_c, rh):
         + 0.00072546 * temp_c * rh**2
         - 0.000003582 * temp_c**2 * rh**2
     )
-
     return hi
 
-weather_df["HI_IMD"] = calculate_heat_index(
+
+def calculate_effective_heat_index(
+    temp_c,
+    rh,
+    precip_sum_mm=0.0,
+    cloud_cover_pct=30.0,
+    solar_rad_W_m2=None,
+    precip_lag1_mm=0.0
+):
+    """
+    Calculates biometeorologically calibrated Effective Heat Index (°C) for Bhubaneswar/coastal Odisha.
+    
+    Factors considered:
+    1. Base Rothfusz / IMD Heat Index polynomial.
+    2. Coastal Temperature Floor Calibration: In coastal stations (IMD criteria), true heatwave hazard
+       requires elevated ambient dry-bulb temperature (threshold in BBSR >= 37°C coastal / 40°C plains).
+       When ambient air temperature is mild (< 33°C), high humidity represents tropical mugginess,
+       not clinical heatstroke emergency. We prevent exponential polynomial runaway below 33°C.
+    3. Solar Radiation / Cloud Cover Attenuation:
+       Overcast skies (cloud cover >= 60% or direct solar < 250 W/m²) significantly reduce
+       downwelling shortwave radiation and Mean Radiant Temperature (T_mrt), dampening thermal hazard.
+    4. Rainfall & Antecedent Precipitation Cooling:
+       Active rain (precip >= 2mm) provides direct evaporative and convective cooling.
+       Antecedent rainfall (past 24h precip >= 5mm) maintains wet surfaces, shifting the Bowen ratio
+       to latent cooling and suppressing heat risk.
+    """
+    raw_hi = calculate_imd_heat_index(temp_c, rh)
+    is_series = isinstance(temp_c, (pd.Series, np.ndarray))
+
+    # 1. Coastal Temperature Calibration Factor
+    if is_series:
+        temp_arr = np.array(temp_c, dtype=float)
+        raw_hi_arr = np.array(raw_hi, dtype=float)
+        coastal_cap = temp_arr + np.where(
+            temp_arr <= 30.0,
+            5.0,
+            np.where(
+                temp_arr <= 33.0,
+                5.0 + (temp_arr - 30.0) * (4.0 / 3.0),
+                9.0 + (temp_arr - 33.0) * (5.0 / 4.0)
+            )
+        )
+        capped_hi = np.where(temp_arr < 37.0, np.minimum(raw_hi_arr, coastal_cap), raw_hi_arr)
+    else:
+        t_val = float(temp_c)
+        raw_val = float(raw_hi)
+        if t_val < 37.0:
+            if t_val <= 30.0:
+                max_infl = 5.0
+            elif t_val <= 33.0:
+                max_infl = 5.0 + (t_val - 30.0) * (4.0 / 3.0)
+            else:
+                max_infl = 9.0 + (t_val - 33.0) * (5.0 / 4.0)
+            capped_hi = min(raw_val, t_val + max_infl)
+        else:
+            capped_hi = raw_val
+
+    # 2. Solar Radiation & Cloud Cover Attenuation (F_solar)
+    if cloud_cover_pct is not None:
+        if isinstance(cloud_cover_pct, (pd.Series, np.ndarray)):
+            cc_arr = np.array(cloud_cover_pct, dtype=float)
+            f_solar = np.where(cc_arr > 30.0, 1.0 - 0.15 * np.clip((cc_arr - 30.0) / 70.0, 0.0, 1.0), 1.0)
+        else:
+            cc = float(cloud_cover_pct)
+            f_solar = 1.0 - 0.15 * min(1.0, (cc - 30.0) / 70.0) if cc > 30.0 else 1.0
+    elif solar_rad_W_m2 is not None:
+        if isinstance(solar_rad_W_m2, (pd.Series, np.ndarray)):
+            s_arr = np.array(solar_rad_W_m2, dtype=float)
+            f_solar = 0.85 + 0.15 * np.clip(s_arr / 500.0, 0.0, 1.0)
+        else:
+            s_val = float(solar_rad_W_m2)
+            f_solar = 0.85 + 0.15 * max(0.0, min(1.0, s_val / 500.0))
+    else:
+        f_solar = 1.0
+
+    # 3. Rainfall & Antecedent Precipitation Cooling (F_rain)
+    if isinstance(precip_sum_mm, (pd.Series, np.ndarray)):
+        p_arr = np.array(precip_sum_mm, dtype=float)
+        f_rain_active = np.where(
+            p_arr >= 5.0,
+            0.84,
+            np.where(
+                p_arr >= 1.0,
+                1.0 - 0.16 * (p_arr / 5.0),
+                np.where(p_arr >= 0.2, 0.96, 1.0)
+            )
+        )
+    else:
+        p_curr = float(precip_sum_mm or 0.0)
+        if p_curr >= 5.0:
+            f_rain_active = 0.84
+        elif p_curr >= 1.0:
+            f_rain_active = 1.0 - 0.16 * (p_curr / 5.0)
+        elif p_curr >= 0.2:
+            f_rain_active = 0.96
+        else:
+            f_rain_active = 1.0
+
+    p_lag = float(precip_lag1_mm or 0.0)
+    if p_lag >= 10.0:
+        f_rain_ante = 0.92
+    elif p_lag >= 3.0:
+        f_rain_ante = 0.96
+    else:
+        f_rain_ante = 1.0
+
+    if is_series:
+        f_rain = np.minimum(f_rain_active, f_rain_ante)
+    else:
+        f_rain = min(float(f_rain_active), f_rain_ante)
+
+    effective_hi = capped_hi * f_solar * f_rain
+    if is_series:
+        effective_hi = np.maximum(effective_hi, temp_arr)
+        return np.round(effective_hi, 2)
+    else:
+        return round(max(float(effective_hi), float(temp_c)), 2)
+
+
+weather_df["HI_IMD_raw"] = calculate_imd_heat_index(
     weather_df["air_temp"],
     weather_df["rel_humidity"]
-)
+).round(2)
 
-weather_df["HI_IMD"] = (
-    weather_df["HI_IMD"].round(2)
+weather_df["HI_IMD"] = calculate_effective_heat_index(
+    weather_df["air_temp"],
+    weather_df["rel_humidity"],
+    precip_sum_mm=weather_df["precipitation_mm"],
+    cloud_cover_pct=weather_df["cloud_cover_pct"]
 )
 
 # ---------------------------------------------------------
@@ -900,16 +1037,33 @@ daily_records = []
 for d in available_dates:
     d = pd.Timestamp(d)
     day_weather = weather_daily[weather_daily['date'] == d]
+    prev_d = d - pd.Timedelta(days=1)
+    prev_weather = weather_daily[weather_daily['date'] == prev_d]
+    precip_lag1 = float(prev_weather['precipitation_mm'].sum()) if len(prev_weather) > 0 and 'precipitation_mm' in prev_weather.columns else 0.0
+
+    day_precip = float(day_weather['precipitation_mm'].sum()) if 'precipitation_mm' in day_weather.columns else 0.0
+    day_cloud = float(day_weather['cloud_cover_pct'].mean()) if 'cloud_cover_pct' in day_weather.columns else 30.0
+    solar_w = round(float(day_weather['solar_rad_J_m2'].mean()) / 3600, 1)
 
     day_gdf = gdf_sectors.copy()
     day_gdf['air_temp'] = round(float(day_weather['air_temp'].mean()), 2)
     day_gdf['rel_humidity'] = round(float(day_weather['rel_humidity'].mean()), 2)
     day_gdf['wind_speed'] = round(float(day_weather['wind_speed'].mean()), 2)
-    # solar_rad_J_m2 is an hourly energy total; divide by 3600s to express
-    # the day's average irradiance in W/m² for the popup.
-    day_gdf['solar_rad_W_m2'] = round(float(day_weather['solar_rad_J_m2'].mean()) / 3600, 1)
-    day_gdf['HI_IMD_mean'] = round(float(day_weather['HI_IMD'].mean()), 2)
-    day_gdf['HI_IMD_max'] = round(float(day_weather['HI_IMD'].max()), 2)
+    day_gdf['precipitation_mm'] = round(day_precip, 1)
+    day_gdf['cloud_cover_pct'] = round(day_cloud, 1)
+    day_gdf['solar_rad_W_m2'] = solar_w
+
+    # Calculate effective heat index across hours of the day using daily rain & cloud context
+    day_hi_eff = calculate_effective_heat_index(
+        day_weather['air_temp'],
+        day_weather['rel_humidity'],
+        precip_sum_mm=day_precip,
+        cloud_cover_pct=day_cloud,
+        solar_rad_W_m2=solar_w,
+        precip_lag1_mm=precip_lag1
+    )
+    day_gdf['HI_IMD_mean'] = round(float(np.mean(day_hi_eff)), 2)
+    day_gdf['HI_IMD_max'] = round(float(np.max(day_hi_eff)), 2)
 
     if d in ts_lookup:
         joined_ts = gpd.sjoin_nearest(
@@ -933,6 +1087,7 @@ for d in available_dates:
 
     export_cols = STATIC_EXPORT_COLUMNS + [
         'air_temp', 'rel_humidity', 'wind_speed', 'solar_rad_W_m2',
+        'precipitation_mm', 'cloud_cover_pct',
         'HI_IMD_mean', 'HI_IMD_max', 'HHSI_mean', 'HHSI_max',
         'risk_class', 'hhsi_class', 'overall_risk', 'overall_risk_emoji',
         'geometry',

@@ -34,6 +34,11 @@ machine learning admissions model, which avoids misleading judges while providin
 honest, actionable clinical guidance.
 """
 
+import sys
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 import json
 import math
 import re
@@ -162,6 +167,8 @@ MODEL_CONFIG = {
     # Baseline emergency surge scaling coefficient (beta_alert)
     # Aligned with NCDC NAP-HRI & Phung et al. (2016) pooled RR benchmarks:
     "alert_beta": {
+        "routine": 0.0,
+        "green": 0.0,
         "yellow": 0.20,  # Cautionary / Moderate heat stress (+10% to +20%)
         "orange": 0.35,  # Confirmed heatwave Day 1 (+25% to +35%)
         "red": 0.48      # Severe / Multi-day heatwave (+40% to +50%)
@@ -169,6 +176,8 @@ MODEL_CONFIG = {
 
     # Alert visual color codes (preserved for frontend compatibility)
     "alert_colors": {
+        "green": "#10b981",
+        "routine": "#10b981",
         "yellow": "#f59e0b",
         "orange": "#ea580c",
         "red": "#dc2626"
@@ -381,18 +390,22 @@ def has_danger_window(value: Any) -> bool:
 # EPIDEMIOLOGICAL SURGE CALCULATION ENGINE
 # =============================================================================
 
-def get_alert_level(probability: float, is_heatwave: bool, consecutive_days: int) -> Tuple[str, str]:
+def get_alert_level(probability: float, is_heatwave: bool, consecutive_days: int, is_suppressed: bool = False) -> Tuple[str, str]:
     """
     Tiered alert assignment following IMD / NCDC standards:
     - Red Alert: Triggered by consecutive heatwave exposure (Day 2+) or extreme probability
     - Orange Alert: Triggered by confirmed single heatwave or >=50% probability
-    - Yellow Alert: Cautionary / moderate thermal strain (<50% prob)
+    - Yellow Alert: Cautionary / moderate thermal strain (15%-50% prob)
+    - Routine Operations: Low thermal risk (<15% prob) or actively suppressed by monsoon/rain
     """
     if consecutive_days >= 2:
         return "Red Alert", MODEL_CONFIG["alert_colors"]["red"]
 
     if is_heatwave or probability >= 0.50:
         return "Orange Alert", MODEL_CONFIG["alert_colors"]["orange"]
+
+    if is_suppressed or probability < 0.15:
+        return "Routine Operations", MODEL_CONFIG["alert_colors"]["green"]
 
     return "Yellow Alert", MODEL_CONFIG["alert_colors"]["yellow"]
 
@@ -486,7 +499,7 @@ def compute_diurnal_influx(excess_emergency_patients: int) -> Dict[str, Any]:
     return waves
 
 
-def evaluate_capacity_action(capacity_pressure: float, facility_key: str) -> Dict[str, str]:
+def evaluate_capacity_action(capacity_pressure: float, facility_key: str, is_rain_suppressed: bool = False) -> Dict[str, str]:
     """
     Converts facility capacity pressure into an immediate administrative action command.
     """
@@ -509,7 +522,10 @@ def evaluate_capacity_action(capacity_pressure: float, facility_key: str) -> Dic
         action = "🟡 ELEVATED TRIAGE: Deploy auxiliary cooling cots; staff dedicated ORS corner at triage intake."
     else:
         status = "NORMAL_OPERATIONS"
-        action = "🟢 ROUTINE READINESS: Maintain standard summer ORT corner and vital monitoring."
+        if is_rain_suppressed:
+            action = "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations."
+        else:
+            action = "🟢 ROUTINE READINESS: Maintain standard summer ORT corner and vital monitoring."
 
     return {
         "status_code": status,
@@ -517,7 +533,7 @@ def evaluate_capacity_action(capacity_pressure: float, facility_key: str) -> Dic
     }
 
 
-def project_facility(facility_key: str, facility: Dict[str, Any], surge_fraction: float) -> Dict[str, Any]:
+def project_facility(facility_key: str, facility: Dict[str, Any], surge_fraction: float, is_rain_suppressed: bool = False) -> Dict[str, Any]:
     """
     Calculates projections for an individual healthcare facility taking into account
     its specific emergency sensitivity, OPD dampening, capacity, and vulnerability.
@@ -564,7 +580,7 @@ def project_facility(facility_key: str, facility: Dict[str, Any], surge_fraction
     # Capacity saturation pressure
     capacity = max(1, int(facility.get("capacity_beds", 1)))
     capacity_pressure = excess_em / capacity
-    action_info = evaluate_capacity_action(capacity_pressure, facility_key)
+    action_info = evaluate_capacity_action(capacity_pressure, facility_key, is_rain_suppressed=is_rain_suppressed)
 
     # Hourly diurnal influx curve
     diurnal_waves = compute_diurnal_influx(excess_em)
@@ -664,7 +680,21 @@ def calculate_surge_predictions(
         else:
             consecutive_hw_count = 0
 
-        alert_level, alert_color = get_alert_level(probability, is_heatwave, consecutive_hw_count)
+        # Meteorological fields for rain/monsoon and coastal calibration
+        apparent_temp_max_surge = float(p_info.get("apparent_temp_max", 0.0) or 0.0)
+        rh_mean_surge = float(p_info.get("rh_mean_pct", 0.0) or 0.0)
+        monsoon_suppressed = bool(p_info.get("monsoon_suppression", False))
+        tmax_c = float(p_info.get("tmax_c", 0.0) or 0.0)
+        precip_mm = float(p_info.get("precipitation_mm", 0.0) or 0.0)
+        rain_prob = float(p_info.get("rain_probability_peak_pct", 0.0) or p_info.get("rain_probability", 0.0) or 0.0)
+        cloud_cover_pct = float(p_info.get("cloud_cover_pct", 0.0) or 0.0)
+        vh_hours = parse_hours(unsafe_duration)
+
+        is_rain_suppressed = (monsoon_suppressed or precip_mm >= 1.5 or rain_prob >= 60.0) and (tmax_c < 35.0)
+
+        alert_level, alert_color = get_alert_level(
+            probability, is_heatwave, consecutive_hw_count, is_suppressed=is_rain_suppressed
+        )
 
         surge = calculate_surge(
             probability=probability,
@@ -679,16 +709,17 @@ def calculate_surge_predictions(
         # Even without a heatwave event, high apparent temperature + humidity drives
         # real patient presentations: E86 dehydration, J44 respiratory, T67 heat
         # exhaustion. This is independent of the heatwave ML probability.
-        # Formula: base = (apparent_temp_max - 32) / 100 * RH_amplifier + vh_bonus
-        # Capped at 8% to avoid double-counting with heatwave surge pathway.
+        # However, during active rainfall or dense overcast monsoon days when dry-bulb
+        # T < 35°C, high humidity is normal wet season moisture and is cooled by rain
+        # and cloud shade, suppressing acute heat presentations.
         # -------------------------------------------------------------------------
-        apparent_temp_max_surge = float(p_info.get("apparent_temp_max", 0.0) or 0.0)
-        rh_mean_surge = float(p_info.get("rh_mean_pct", 0.0) or 0.0)
-        monsoon_suppressed = bool(p_info.get("monsoon_suppression", False))
-        vh_hours = parse_hours(unsafe_duration)
-
         humidity_heat_fraction = 0.0
-        if apparent_temp_max_surge >= 33.0:
+        if is_rain_suppressed:
+            # Active rainfall / monsoon cooling eliminates acute solar heat surge
+            humidity_heat_fraction = 0.0
+            surge["surge_fraction"] = 0.0
+            surge["surge_percent"] = 0.0
+        elif apparent_temp_max_surge >= 33.0:
             # Base: +1% per °C above 32°C apparent temperature
             base_component = (apparent_temp_max_surge - 32.0) / 100.0
             # Amplifier: humidity >70% increases sweat inefficiency and dehydration risk
@@ -698,10 +729,22 @@ def calculate_surge_predictions(
             vh_bonus = min(0.03, vh_hours * 0.015)  # +1.5% per UNSAFE hour, capped 3%
             humidity_heat_fraction = base_humidity_surge + vh_bonus
 
+            # If there is rain but temperature is high (tmax >= 35°C), dampen the humidity surge
+            if precip_mm > 0:
+                rain_dampen = max(0.0, 1.0 - precip_mm / 5.0)
+                humidity_heat_fraction *= rain_dampen
+
         # Combined effective surge fraction used for all facility projections
         effective_surge_fraction = clamp(
             surge["surge_fraction"] + humidity_heat_fraction, 0.0, 0.75
         )
+
+        # Eliminate spurious sub-threshold fractions (<1.5% is noise)
+        if effective_surge_fraction < 0.015:
+            effective_surge_fraction = 0.0
+            if not is_heatwave and consecutive_hw_count == 0:
+                alert_level = "Routine Operations"
+                alert_color = MODEL_CONFIG["alert_colors"]["green"]
 
         if alert_level == "Red Alert":
             advisory = (
@@ -713,6 +756,15 @@ def calculate_surge_predictions(
             advisory = (
                 "SEVERE SURGE: Significant heatwave probability. Operationalize dedicated Heat Stroke Units (HSU); "
                 "stock rapid immersion ice packs; reinforce emergency nursing shifts during 12:00–16:00 danger window."
+            )
+        elif is_rain_suppressed or (effective_surge_fraction == 0.0 and (precip_mm >= 1.0 or rain_prob >= 40.0)):
+            advisory = (
+                "🟢 ROUTINE READINESS: Active rainfall and overcast conditions suppress acute solar heat-health presentations. "
+                "Maintain routine operations."
+            )
+        elif effective_surge_fraction == 0.0:
+            advisory = (
+                "🟢 ROUTINE READINESS: Mild/normal thermal conditions. Maintain standard triage operations and routine hydration guidance."
             )
         elif humidity_heat_fraction >= 0.05:
             advisory = (
@@ -738,7 +790,7 @@ def calculate_surge_predictions(
         facility_projections = {}
         for fac_key, facility in FACILITIES.items():
             facility_projections[fac_key] = project_facility(
-                fac_key, facility, effective_surge_fraction
+                fac_key, facility, effective_surge_fraction, is_rain_suppressed=is_rain_suppressed
             )
 
         date_result = {

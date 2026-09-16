@@ -17,6 +17,10 @@ Responsibilities:
 
 import os
 import sys
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 import json
 import math
 import pickle
@@ -79,7 +83,7 @@ def calculate_heat_index(t_c: float, rh: float) -> float:
             - 0.00683783 * (t_f ** 2)
             - 0.05481717 * (r ** 2)
             + 0.00122874 * (t_f ** 2) * r
-            + 0.00085282 * t_f * (r ** 2)
+            + 0.00072546 * t_f * (r ** 2)
             - 0.00000199 * (t_f ** 2) * (r ** 2)
         )
         if r < 13.0 and 80.0 <= t_f <= 112.0:
@@ -91,6 +95,61 @@ def calculate_heat_index(t_c: float, rh: float) -> float:
 
     hi_c = (hi_f - 32.0) * 5.0 / 9.0
     return round(hi_c, 2)
+
+
+def calculate_effective_hourly_heat_index(
+    t_c: float,
+    rh: float,
+    precip_mm: float = 0.0,
+    cloud_pct: float = 0.0,
+    solar_rad: float = None
+) -> float:
+    """
+    Calculates biometeorologically calibrated apparent heat index (°C) for hourly NWP forecast.
+    Considers:
+    - Base NOAA/Rothfusz heat index equation.
+    - Coastal Temperature Floor Calibration: In coastal Odisha, if ambient air temperature is
+      mild (< 33°C), high humidity represents tropical mugginess, not clinical heatstroke emergency.
+    - Active Precipitation Cooling: Rain converts sensible heat into latent heat, immediately cooling
+      both ambient air and wet human skin.
+    - Cloud Cover & Solar Attenuation: Thick overcast clouds suppress direct solar irradiance (DNI)
+      and Mean Radiant Temperature (T_mrt).
+    """
+    raw_hi = calculate_heat_index(t_c, rh)
+    
+    # 1. Coastal Temperature Calibration
+    if t_c < 37.0:
+        if t_c <= 30.0:
+            max_infl = 5.0
+        elif t_c <= 33.0:
+            max_infl = 5.0 + (t_c - 30.0) * (4.0 / 3.0)
+        else:
+            max_infl = 9.0 + (t_c - 33.0) * 1.25
+        capped_hi = min(raw_hi, t_c + max_infl)
+    else:
+        capped_hi = raw_hi
+        
+    # 2. Solar Radiation / Cloud Attenuation
+    if cloud_pct is not None and cloud_pct > 30.0:
+        f_solar = 1.0 - 0.15 * min(1.0, (cloud_pct - 30.0) / 70.0)
+    elif solar_rad is not None and solar_rad < 500.0:
+        f_solar = 0.85 + 0.15 * max(0.0, solar_rad / 500.0)
+    else:
+        f_solar = 1.0
+        
+    # 3. Active Precipitation Cooling
+    p = float(precip_mm or 0.0)
+    if p >= 2.0:
+        f_rain = 0.84
+    elif p >= 0.5:
+        f_rain = 0.90
+    elif p > 0.0:
+        f_rain = 0.95
+    else:
+        f_rain = 1.0
+        
+    effective_hi = capped_hi * f_solar * f_rain
+    return round(max(float(effective_hi), float(t_c)), 2)
 
 
 def get_thermal_stress_category(hi_c: float) -> str:
@@ -197,8 +256,15 @@ def fetch_live_nwp_forecast(test_storm_mode: bool = False) -> pd.DataFrame:
             df.loc[mask, "cloud_cover"] = 92.0
             df.loc[mask, "temperature_2m"] -= 4.5  # evaporative cooling
 
-    # Compute direct hourly heat index & thermal stress
-    df["heat_index"] = [calculate_heat_index(t, rh) for t, rh in zip(df["temperature_2m"], df["relative_humidity_2m"])]
+    # Compute direct hourly heat index & thermal stress with rain and cloud attenuation
+    solar_vals = df["direct_normal_irradiance"] if "direct_normal_irradiance" in df.columns else [None] * len(df)
+    precip_vals = df["precipitation"] if "precipitation" in df.columns else [0.0] * len(df)
+    cloud_vals = df["cloud_cover"] if "cloud_cover" in df.columns else [30.0] * len(df)
+
+    df["heat_index"] = [
+        calculate_effective_hourly_heat_index(t, rh, p, c, sol)
+        for t, rh, p, c, sol in zip(df["temperature_2m"], df["relative_humidity_2m"], precip_vals, cloud_vals, solar_vals)
+    ]
     df["thermal_stress"] = [get_thermal_stress_category(hi) for hi in df["heat_index"]]
 
     # Derive pressure differences
@@ -581,40 +647,52 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
             )
 
         # 5. Early Warning determination
-        if vh_hours_count >= 4 or (risk_score >= 0.70 and vh_hours_count >= 3):
-            warning_level = "Severe Heat Warning"
-            warning_class = "critical"
-        elif vh_hours_count >= 3 or risk_score >= optimal_th:
-            warning_level = "Heat Warning"
-            warning_class = "warning"
-        elif vh_hours_count >= 1 or risk_score >= (optimal_th * 0.75):
-            # Distinguish a genuine heatwave watch from a monsoon-context humidity spike
-            if is_monsoon_suppressed and vh_hours_count >= 1 and rain_prob_max >= 60.0:
+        if is_monsoon_suppressed or precip_sum >= 2.0 or rain_prob_peak >= 60.0:
+            # Active rain or monsoon conditions suppress synoptic heatwave risk
+            if vh_hours_count >= 4 and tmax >= 38.0 and risk_score >= 0.60:
+                warning_level = "Severe Heat Warning"
+                warning_class = "critical"
+            elif (vh_hours_count >= 3 or risk_score >= optimal_th) and tmax >= 37.0:
+                warning_level = "Heat Warning"
+                warning_class = "warning"
+            elif vh_hours_count >= 1 and tmax >= 34.0:
                 warning_level = "Humidity-Heat Window"
                 warning_class = "caution"
             else:
+                warning_level = "Normal"
+                warning_class = "safe"
+        else:
+            if vh_hours_count >= 4 or (risk_score >= 0.70 and vh_hours_count >= 3):
+                warning_level = "Severe Heat Warning"
+                warning_class = "critical"
+            elif vh_hours_count >= 3 or risk_score >= optimal_th:
+                warning_level = "Heat Warning"
+                warning_class = "warning"
+            elif vh_hours_count >= 1 or risk_score >= (optimal_th * 0.75):
                 warning_level = "Watch"
                 warning_class = "caution"
-        else:
-            warning_level = "Normal"
-            warning_class = "safe"
+            else:
+                warning_level = "Normal"
+                warning_class = "safe"
 
         # Contributing factors breakdown
         factors = []
         if tmax >= 38.0:
             factors.append(f"🌡️ High temperature ({tmax:.1f}°C)")
         if is_monsoon_suppressed:
-            factors.append(f"🌧️ Monsoon humidity ({rh_mean:.0f}%) + rainfall suppressing heat risk")
+            factors.append(f"🌧️ Monsoon moisture ({rh_mean:.0f}% RH) + rain suppressing heatwave risk")
         elif rh_mean >= 60.0:
             factors.append(f"💧 Elevated humidity ({rh_mean:.0f}%) — muggy conditions")
-        if precip_sum > 1.0:
+        if precip_sum >= 1.0:
             factors.append(f"🌧️ Active rainfall ({precip_sum:.1f} mm) cooling surface temperatures")
         elif rain_prob_peak >= 40:
             factors.append(f"⛈️ Peak hourly precipitation probability ({rain_prob_peak:.0f}% at {peak_hour_str})")
+        if cloud_mean >= 50.0:
+            factors.append(f"☁️ Cloud cover ({cloud_mean:.0f}%) attenuating solar radiation")
+        elif cloud_mean < 30.0:
+            factors.append(f"☀️ Clear skies / high solar radiation")
         if wind_mean < 3.0 and not is_monsoon_suppressed:
             factors.append(f"🍃 Low wind ({wind_mean:.1f} m/s) — poor ventilation")
-        if cloud_mean < 30.0:
-            factors.append(f"☀️ Clear skies / high solar radiation")
         if has_storm_risk:
             factors.append(f"⚡ Convective instability (CAPE {cape_max:.0f} J/kg)")
         if not factors:
@@ -668,8 +746,10 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
             "probability_of_heatwave": round(proba, 3),
             "prediction": prediction,
             "risk_level": (
-                "High" if (vh_hours_count >= 3 or risk_score >= 0.60) else (
-                    "Moderate" if (vh_hours_count >= 1 or risk_score >= optimal_th) else "Low"
+                "Low" if ((is_monsoon_suppressed or precip_sum >= 2.0 or rain_prob_max >= 60.0) and tmax < 36.0 and risk_score < 0.35) else (
+                    "High" if (vh_hours_count >= 3 or risk_score >= 0.60) else (
+                        "Moderate" if (vh_hours_count >= 1 or risk_score >= optimal_th) else "Low"
+                    )
                 )
             ),
             "confidence": confidence,
