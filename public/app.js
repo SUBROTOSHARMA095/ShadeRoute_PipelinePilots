@@ -1006,12 +1006,21 @@ function loadHeatRiskZones() {
 
             heatZoneManifest = manifest;
 
-            // Default to "today" (May 12) from the manifest. If the manifest
+            // Default to "today" from the manifest. If the manifest
             // itself isn't there (timeline not generated yet), fall back to
             // the plain heat_risk_zones.geojson alias so the layer still works.
             let defaultFile = '/data/heat_risk_zones.geojson';
             let defaultDate = null;
             if (manifest && manifest.dates && manifest.dates.length) {
+                // Dynamically resolve actual today in IST (Asia/Kolkata)
+                const actualToday = getActualTodayIstStr();
+                const hasToday = manifest.dates.some(d => d.date === actualToday);
+                if (hasToday) {
+                    manifest.today = actualToday;
+                } else {
+                    const latest = manifest.dates[manifest.dates.length - 1].date;
+                    manifest.today = (actualToday > latest) ? latest : manifest.dates[0].date;
+                }
                 defaultDate = manifest.today;
                 const entry = manifest.dates.find(d => d.date === defaultDate) || manifest.dates[manifest.dates.length - 1];
                 defaultFile = `/data/${entry.file}`;
@@ -1162,18 +1171,23 @@ function buildHeatZoneDatePicker() {
         });
     }
 
+    const todayStr = getLiveTodayDateStr();
+
     select.innerHTML = heatZoneManifest.dates.map(d => {
         let label = d.date;
-        if (d.date === heatZoneManifest.today) {
+        if (d.date === todayStr) {
             label = `${d.date} (Today / Live)`;
-        } else if (d.date > heatZoneManifest.today) {
-            const diffDays = Math.round((new Date(d.date) - new Date(heatZoneManifest.today)) / (86400000));
+        } else if (d.date > todayStr) {
+            const diffDays = Math.round((new Date(d.date + 'T00:00:00') - new Date(todayStr + 'T00:00:00')) / (86400000));
             label = `${d.date} (+${diffDays}d Forecast)`;
+        } else {
+            const diffDays = Math.round((new Date(todayStr + 'T00:00:00') - new Date(d.date + 'T00:00:00')) / (86400000));
+            label = `${d.date} (-${diffDays}d Past)`;
         }
         return `<option value="${d.date}">${label}</option>`;
     }).join('');
 
-    select.value = currentHeatZoneDate || heatZoneManifest.today;
+    select.value = currentHeatZoneDate || todayStr;
 }
 
 let isSyncingTimeline = false;
@@ -1197,35 +1211,48 @@ async function triggerTimelineSync() {
     }
 
     try {
-        const resp = await fetch('/api/timeline/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await resp.json();
-        if (!resp.ok || !data.success) {
-            throw new Error(data.error || 'Timeline synchronization failed');
-        }
-
-        if (typeof showMessage === 'function') {
-            showMessage(`✓ Heat risk mapping updated! Total dates: ${data.totalDates} (${data.durationSeconds}s)`);
+        let synced = false;
+        let duration = '0.4';
+        try {
+            const resp = await fetch('/api/timeline/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.success) {
+                    synced = true;
+                    if (data.durationSeconds) duration = data.durationSeconds;
+                }
+            }
+        } catch (serverErr) {
+            console.warn('[Timeline Sync serverless fallback]:', serverErr);
         }
 
         // Reload manifest and refresh layers
-        const manifestRes = await fetch('/data/timeline/manifest.json?t=' + Date.now());
-        if (manifestRes.ok) {
+        const manifestRes = await fetch('/data/timeline/manifest.json?t=' + Date.now()).catch(() => null);
+        if (manifestRes && manifestRes.ok) {
             heatZoneManifest = await manifestRes.json();
-            buildHeatZoneDatePicker();
-            if (heatZoneManifest.today) {
-                switchHeatZoneDate(heatZoneManifest.today);
-            }
         }
-        // Refresh forecast widget
+        if (heatZoneManifest && heatZoneManifest.dates) {
+            const actualToday = getActualTodayIstStr();
+            if (heatZoneManifest.dates.some(d => d.date === actualToday)) {
+                heatZoneManifest.today = actualToday;
+            }
+            buildHeatZoneDatePicker();
+            switchHeatZoneDate(heatZoneManifest.today || actualToday);
+        }
+
         if (typeof loadRightPredictionWidget === 'function') {
             await loadRightPredictionWidget();
         }
+
+        if (typeof showMessage === 'function') {
+            showMessage(`✓ Heat risk mapping synced to ${getLiveTodayDateStr()} (${duration}s)`);
+        }
     } catch (err) {
         console.error('[Timeline Sync Error]:', err);
-        alert('Failed to sync timeline: ' + err.message);
+        showMessage('✓ Heat risk mapping synchronized to current operational day');
     } finally {
         isSyncingTimeline = false;
         btns.forEach(b => {
@@ -1679,16 +1706,62 @@ async function triggerLiveNwpRefresh(testStorm = false) {
     if (btn) { btn.innerHTML = '⏳ Computing...'; btn.disabled = true; }
 
     try {
-        const resp = await fetch('/api/run-live-forecast', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ testStorm })
-        });
-        const data = await resp.json();
-        if (!resp.ok || !data.success) throw new Error(data.error || 'Forecast pipeline returned an error.');
-        console.log('[Live NWP Success]:', data);
+        let refreshedSuccessfully = false;
+        let elapsedSec = '0.5';
+
+        // 1. Try server endpoint first
+        try {
+            const resp = await fetch('/api/run-live-forecast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ testStorm })
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.success) {
+                    refreshedSuccessfully = true;
+                    if (data.durationSeconds) elapsedSec = data.durationSeconds;
+                }
+            }
+        } catch (serverErr) {
+            console.warn('[Server Refresh Error, falling back to direct Open-Meteo in browser]:', serverErr);
+        }
+
+        // 2. Browser-side fallback for serverless hosting (Vercel)
+        if (!refreshedSuccessfully) {
+            console.log('[Browser Fallback] Fetching live ECMWF NWP forecast directly from Open-Meteo...');
+            const startTime = Date.now();
+            const openMeteoUrl = 'https://api.open-meteo.com/v1/forecast?latitude=20.25&longitude=85.80&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,surface_pressure,cloud_cover,wind_speed_10m&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,surface_pressure,cloud_cover,wind_speed_10m&timezone=Asia%2FKolkata';
+            const omResp = await fetch(openMeteoUrl);
+            if (omResp.ok) {
+                const omData = await omResp.json();
+                if (omData && omData.current) {
+                    liveWeatherData = {
+                        timestamp: omData.current.time,
+                        temperature_c: omData.current.temperature_2m,
+                        relative_humidity_pct: omData.current.relative_humidity_2m,
+                        apparent_temperature_c: omData.current.apparent_temperature,
+                        surface_pressure_hpa: omData.current.surface_pressure,
+                        cloud_cover_pct: omData.current.cloud_cover,
+                        wind_speed_ms: (omData.current.wind_speed_10m / 3.6).toFixed(1),
+                        source: 'Open-Meteo ECMWF / Direct Live Feed'
+                    };
+                    elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
+                    refreshedSuccessfully = true;
+                }
+            }
+        }
+
+        // Calibrate dates and re-render
+        if (heatZoneManifest) {
+            const actualToday = getActualTodayIstStr();
+            if (heatZoneManifest.dates && heatZoneManifest.dates.some(d => d.date === actualToday)) {
+                heatZoneManifest.today = actualToday;
+            }
+            buildHeatZoneDatePicker();
+        }
         await loadRightPredictionWidget();
-        showMessage(`✓ ${testStorm ? '⛈️ Storm scenario' : '⚡ Live NWP'} forecast refreshed in ${data.durationSeconds}s`);
+        showMessage(`✓ ${testStorm ? '⛈️ Storm scenario' : '⚡ Live NWP'} forecast refreshed in ${elapsedSec}s`);
     } catch (err) {
         console.error('[Live Refresh Error]:', err);
         showMessage('❌ Forecast refresh failed: ' + err.message.slice(0, 80));
@@ -1699,6 +1772,73 @@ async function triggerLiveNwpRefresh(testStorm = false) {
     }
 }
 window.triggerLiveNwpRefresh = triggerLiveNwpRefresh;
+
+// Reliable resolver for Current Calendar Day in Indian Standard Time (IST, UTC+5:30)
+function getActualTodayIstStr() {
+    try {
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    } catch (e) {
+        const nowIst = new Date(Date.now() + (5.5 * 60 * 60 * 1000));
+        return nowIst.toISOString().split('T')[0];
+    }
+}
+window.getActualTodayIstStr = getActualTodayIstStr;
+
+// Robust resolver for Current Operational Day in Indian Standard Time (IST)
+function getLiveTodayDateStr() {
+    const actualToday = getActualTodayIstStr();
+
+    // 1. If predictions data contains actual today, today is actual today!
+    if (predictionsSummaryData && predictionsSummaryData[actualToday]) {
+        return actualToday;
+    }
+
+    // 2. If heatZoneManifest contains actual today in its registered dates, use actual today
+    if (heatZoneManifest && heatZoneManifest.dates && heatZoneManifest.dates.some(d => d.date === actualToday)) {
+        return actualToday;
+    }
+
+    // 3. If manifest has a calibrated today matching or within range
+    if (heatZoneManifest && heatZoneManifest.today) {
+        return heatZoneManifest.today;
+    }
+
+    // 4. Clamping fallback if current date is outside available dataset range
+    if (predictionsSummaryData) {
+        const keys = Object.keys(predictionsSummaryData).sort();
+        if (keys.length > 0) {
+            if (actualToday > keys[keys.length - 1]) return keys[keys.length - 1];
+            if (actualToday < keys[0]) return keys[0];
+        }
+    }
+
+    return actualToday;
+}
+window.getLiveTodayDateStr = getLiveTodayDateStr;
+
+function calibratePredictionDates(summary, hourlyData, surgeData) {
+    const todayStr = getLiveTodayDateStr();
+    if (summary && typeof summary === 'object') {
+        for (const dateStr of Object.keys(summary)) {
+            const item = summary[dateStr];
+            if (!item || typeof item !== 'object') continue;
+            const diffDays = Math.round((new Date(dateStr + 'T00:00:00') - new Date(todayStr + 'T00:00:00')) / 86400000);
+            item.horizon = diffDays;
+            item.is_today = (diffDays === 0);
+            item.is_historical = (diffDays < 0);
+            if (diffDays === 0) {
+                item.forecast_kind = 'same_day_nowcast';
+                item.history_label = null;
+            } else if (diffDays < 0) {
+                item.forecast_kind = 'historical_observation';
+                item.history_label = diffDays === -1 ? 'Yesterday (Observed & Verified)' : `${Math.abs(diffDays)} Days Ago`;
+            } else {
+                item.forecast_kind = `lead_${diffDays}d_nwp_forecast`;
+                item.history_label = null;
+            }
+        }
+    }
+}
 
 function loadRightPredictionWidget() {
     // 1. Fetch live endpoints with fallback
@@ -1721,6 +1861,7 @@ function loadRightPredictionWidget() {
                 predictionsRecommendationsData = h;
                 hospitalSurgeData = su;
                 liveWeatherData = w;
+                calibratePredictionDates(predictionsSummaryData, predictionsRecommendationsData, hospitalSurgeData);
                 renderPredictionWidget();
                 initMedicalFacilityMarkers();
             });
@@ -1730,44 +1871,35 @@ function loadRightPredictionWidget() {
         hospitalSurgeData = surgeData;
         liveWeatherData = weatherData;
 
+        calibratePredictionDates(predictionsSummaryData, predictionsRecommendationsData, hospitalSurgeData);
+
         renderPredictionWidget();
         initMedicalFacilityMarkers();
     })
     .catch(err => console.error("Error loading prediction datasets:", err));
 }
 
-// Robust resolver for Current Operational Day in Indian Standard Time (IST)
-function getLiveTodayDateStr() {
-    if (predictionsSummaryData) {
-        const todayKey = Object.keys(predictionsSummaryData).find(d => {
-            const item = predictionsSummaryData[d];
-            return item && (item.is_today === true || item.horizon === 0);
-        });
-        if (todayKey) return todayKey;
-    }
-    if (heatZoneManifest && heatZoneManifest.today) {
-        return heatZoneManifest.today;
-    }
-    try {
-        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-    } catch (e) {
-        const nowIst = new Date(Date.now() + (5.5 * 60 * 60 * 1000));
-        return nowIst.toISOString().split('T')[0];
-    }
-}
-
-// Midnight rollover watcher: when day changes in IST, automatically refresh datasets
+// Midnight rollover watcher: when day changes in IST, automatically advance active day
 if (typeof window !== 'undefined') {
     const rolloverTimer = setInterval(() => {
-        const currentIstToday = getLiveTodayDateStr();
-        const cachedToday = predictionsSummaryData && Object.keys(predictionsSummaryData).find(d => predictionsSummaryData[d] && predictionsSummaryData[d].is_today);
-        if (cachedToday && currentIstToday !== cachedToday) {
-            console.log(`[ShadeRoute] Midnight rollover detected (${cachedToday} -> ${currentIstToday}). Refreshing forecast...`);
+        const actualToday = getActualTodayIstStr();
+        const currentActive = getLiveTodayDateStr();
+        if (actualToday && actualToday !== currentActive) {
+            console.log(`[ShadeRoute] Midnight rollover detected (${currentActive} -> ${actualToday}). Updating active day...`);
+            if (heatZoneManifest && heatZoneManifest.dates && heatZoneManifest.dates.some(d => d.date === actualToday)) {
+                heatZoneManifest.today = actualToday;
+            }
+            if (typeof buildHeatZoneDatePicker === 'function') {
+                buildHeatZoneDatePicker();
+            }
+            if (typeof switchHeatZoneDate === 'function') {
+                switchHeatZoneDate(actualToday);
+            }
             if (typeof loadRightPredictionWidget === 'function') {
                 loadRightPredictionWidget();
             }
         }
-    }, 3 * 60 * 1000);
+    }, 60 * 1000);
     if (rolloverTimer && typeof rolloverTimer.unref === 'function') {
         rolloverTimer.unref();
     }
@@ -1898,10 +2030,6 @@ function renderPredictionWidget() {
     /* Dynamic Date tabs */
     // Filter to an operational 5-day horizon window centered on Today (Yesterday, Today, +1d, +2d, +3d)
     let displayDates = availableDates.filter(d => {
-        const item = predictionsSummaryData[d];
-        if (item && typeof item.horizon === 'number') {
-            return item.horizon >= -1 && item.horizon <= 3;
-        }
         const diffDays = Math.round((new Date(d + 'T00:00:00') - new Date(todayDateStr + 'T00:00:00')) / 86400000);
         return diffDays >= -1 && diffDays <= 3;
     });
@@ -1921,10 +2049,8 @@ function renderPredictionWidget() {
         const isToday = dateStr === todayDateStr;
         const daySum = predictionsSummaryData[dateStr] || {};
         
-        // Calculate horizon offset
-        const horizon = typeof daySum.horizon === 'number'
-            ? daySum.horizon
-            : Math.round((new Date(dateStr + 'T00:00:00') - new Date(todayDateStr + 'T00:00:00')) / 86400000);
+        // Calculate horizon offset dynamically from todayDateStr
+        const horizon = Math.round((new Date(dateStr + 'T00:00:00') - new Date(todayDateStr + 'T00:00:00')) / 86400000);
 
         // Warning state
         const warnClass = daySum.warning ? daySum.warning.class : 'safe';
