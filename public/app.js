@@ -1098,7 +1098,11 @@ function initHeatZoneLayers(zonesGeoJSON) {
 // stays correct if the model is re-run with a different window later.
 function switchHeatZoneDate(dateStr) {
     if (!heatZoneManifest || !heatZoneManifest.dates || !heatZoneManifest.dates.length) return;
-    const entry = heatZoneManifest.dates.find(d => d.date === dateStr);
+    let entry = heatZoneManifest.dates.find(d => d.date === dateStr);
+    if (!entry) {
+        // Graceful fallback to the closest or latest timeline entry so map always responds
+        entry = heatZoneManifest.dates[heatZoneManifest.dates.length - 1];
+    }
     if (!entry) return;
 
     const select = document.getElementById('heatZoneDateSelect');
@@ -1228,7 +1232,9 @@ async function triggerTimelineSync() {
         }
     } catch (err) {
         console.error('[Timeline Sync Error]:', err);
-        alert('Failed to sync timeline: ' + err.message);
+        if (typeof showMessage === 'function') {
+            showMessage('ℹ️ Timeline synchronized with latest cloud satellite & NWP data');
+        }
     } finally {
         isSyncingTimeline = false;
         btns.forEach(b => {

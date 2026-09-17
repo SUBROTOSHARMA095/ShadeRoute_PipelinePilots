@@ -146,7 +146,7 @@
       "latest_observation_date": "2026-09-17",
       "age_days": 1
     },
-    "probability_of_heatwave": 0.014,
+    "probability_of_heatwave": 0.013,
     "prediction": "No heatwave",
     "risk_level": "Low",
     "confidence": "Medium",
@@ -213,7 +213,7 @@
       "latest_observation_date": "2026-09-17",
       "age_days": 1
     },
-    "probability_of_heatwave": 0.001,
+    "probability_of_heatwave": 0.0,
     "prediction": "No heatwave",
     "risk_level": "Low",
     "confidence": "Medium",

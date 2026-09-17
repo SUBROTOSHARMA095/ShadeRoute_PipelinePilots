@@ -682,7 +682,7 @@
     "advisory": null
   },
   "2026-09-19": {
-    "heatwave_probability": 0.014,
+    "heatwave_probability": 0.013,
     "forecast_kind": "day_ahead_probability",
     "expected_unsafe_duration": "0 hours",
     "danger_window": null,
@@ -1022,7 +1022,7 @@
     "advisory": null
   },
   "2026-09-20": {
-    "heatwave_probability": 0.001,
+    "heatwave_probability": 0.0,
     "forecast_kind": "day_ahead_probability",
     "expected_unsafe_duration": "0 hours",
     "danger_window": null,

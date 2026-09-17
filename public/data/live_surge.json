@@ -814,7 +814,7 @@
     },
     "2026-09-19": {
       "date": "2026-09-19",
-      "heatwave_probability": 0.014,
+      "heatwave_probability": 0.013,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -1138,7 +1138,7 @@
     },
     "2026-09-20": {
       "date": "2026-09-20",
-      "heatwave_probability": 0.001,
+      "heatwave_probability": 0.0,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
