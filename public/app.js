@@ -701,7 +701,7 @@ function addGridClickInteraction() {
 
         let badgeBg = '#f59e0b';
         let badgeColor = '#ffffff';
-        if (cell.intervention_type === 'Mist Sprayer') { badgeBg = '#0284c7'; }
+        if (cell.intervention_type === 'Mist Sprayer') { badgeBg = '#00ffff'; badgeColor = '#0f172a'; }
         else if (cell.priority_class === 'Very High') { badgeBg = '#dc2626'; }
         else if (cell.priority_class === 'High') { badgeBg = '#ea580c'; }
         else if (cell.priority_class === 'Low') { badgeBg = '#059669'; }
@@ -1456,7 +1456,8 @@ let activePredictionTab = "weather"; // "weather" | "surge"
 let activeSurgeFacility = "soa_student_health_centre"; // "soa_student_health_centre" | "jagamara_uphc" | "astang_ayurveda" | "sum_hospital"
 let showSurgeCitations = false;
 let showSurgeDiurnal = false;
-let isPredictionWidgetCollapsed = false;
+// Initialize collapsed by default on smartphone viewports (<= 640px)
+let isPredictionWidgetCollapsed = typeof window !== 'undefined' && window.innerWidth <= 640;
 
 function switchPredictionDate(dateStr) {
     activePredictionDate = dateStr;
@@ -1470,6 +1471,19 @@ function togglePredictionWidget() {
     renderPredictionWidget();
 }
 window.togglePredictionWidget = togglePredictionWidget;
+
+window.setPredictionWidgetCollapsed = function(collapsed) {
+    isPredictionWidgetCollapsed = Boolean(collapsed);
+    renderPredictionWidget();
+};
+
+window.setPredictionTab = function(tab) {
+    if (tab === 'weather' || tab === 'surge') {
+        activePredictionTab = tab;
+        isPredictionWidgetCollapsed = false;
+        renderPredictionWidget();
+    }
+};
 
 let medicalFacilityMarkers = {};
 
@@ -1816,7 +1830,29 @@ function renderPredictionWidget() {
        COLLAPSED STATE — a slim pill the user clicks to expand
     ───────────────────────────────────────────────────────────── */
     if (isPredictionWidgetCollapsed) {
-        card.style.cssText = `
+        const isMobile = window.innerWidth <= 640;
+        card.style.cssText = isMobile ? `
+            position: fixed;
+            bottom: 14px;
+            right: 8px;
+            top: auto;
+            left: auto;
+            z-index: 25;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1.5px solid rgba(255,255,255,0.9);
+            border-radius: 999px;
+            padding: 4px 10px;
+            color: #0f172a;
+            box-shadow: 0 4px 16px rgba(15,23,42,0.14);
+            font-family: 'Plus Jakarta Sans','Inter',sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            max-width: 44vw;
+        ` : `
             position: fixed;
             top: 88px;
             right: 16px;
@@ -1836,7 +1872,7 @@ function renderPredictionWidget() {
             cursor: pointer;
         `;
         const collapseIcon = activePredictionTab === 'surge' ? '🏥' : '🔥';
-        const collapseLabel = activePredictionTab === 'surge' ? 'Patient Surge' : 'Heatwave Forecast';
+        const collapseLabel = activePredictionTab === 'surge' ? 'Patient Surge' : 'Heat Forecast';
         const collapseBadge = activePredictionTab === 'surge' && surge
             ? `+${surge.surge_percent}%`
             : (summary.prediction || 'NORMAL');
@@ -1847,14 +1883,28 @@ function renderPredictionWidget() {
             ? (surge.surge_percent >= 20 ? '#fef2f2' : surge.surge_percent >= 10 ? '#fffbeb' : '#ecfdf5')
             : badgeBg;
 
-        card.innerHTML = `
-            <span style="font-size:15px;">${collapseIcon}</span>
-            <span style="font-size:12px;font-weight:700;color:#0f172a;">${collapseLabel} (${formatForecastDate(activePredictionDate)})</span>
-            <span style="background:${collapseBadgeBg};color:${collapseBadgeColor};border:1px solid ${badgeBorder};font-weight:800;font-size:10px;padding:2px 7px;border-radius:999px;">
-                ${collapseBadge}
-            </span>
-            <span data-action="expand" style="font-size:11px;color:#64748b;font-weight:600;margin-left:auto;white-space:nowrap;">↑ Expand</span>
-        `;
+        if (isMobile) {
+            card.innerHTML = `
+                <div style="display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden;">
+                    <span style="font-size:12px;flex-shrink:0;">${collapseIcon}</span>
+                    <span style="font-size:9.5px;font-weight:800;color:${collapseBadgeColor};background:${collapseBadgeBg};border:1px solid ${badgeBorder};padding:1.5px 5px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${collapseBadge}</span>
+                </div>
+                <span data-action="expand" style="font-size:9.5px;color:#0284c7;font-weight:750;white-space:nowrap;flex-shrink:0;">▾</span>
+            `;
+        } else {
+            card.innerHTML = `
+                <div style="display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;">
+                    <span style="font-size:14px;flex-shrink:0;">${collapseIcon}</span>
+                    <span style="font-size:11.5px;font-weight:750;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        ${collapseLabel} (${formatForecastDate(activePredictionDate)})
+                    </span>
+                    <span style="background:${collapseBadgeBg};color:${collapseBadgeColor};border:1px solid ${badgeBorder};font-weight:800;font-size:9.5px;padding:2px 6px;border-radius:999px;flex-shrink:0;">
+                        ${collapseBadge}
+                    </span>
+                </div>
+                <span data-action="expand" style="font-size:11px;color:#0284c7;font-weight:700;white-space:nowrap;flex-shrink:0;">Expand ▾</span>
+            `;
+        }
         card._delegatedListener = () => { isPredictionWidgetCollapsed = false; renderPredictionWidget(); };
         card.addEventListener('click', card._delegatedListener);
         return;
@@ -1863,7 +1913,25 @@ function renderPredictionWidget() {
     /* ─────────────────────────────────────────────────────────────
        EXPANDED STATE — full widget
     ───────────────────────────────────────────────────────────── */
-    card.style.cssText = `
+    const isMobile = window.innerWidth <= 640;
+    card.style.cssText = isMobile ? `
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        max-height: 56vh;
+        z-index: 35;
+        background: rgba(255,255,255,0.98);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        border: 1px solid rgba(226,232,240,0.8);
+        border-radius: 20px;
+        padding: 12px;
+        color: #0f172a;
+        box-shadow: 0 20px 40px -8px rgba(15,23,42,0.22);
+        font-family: 'Plus Jakarta Sans','Inter',sans-serif;
+        overflow-y: auto;
+    ` : `
         position: fixed;
         top: 88px;
         right: 16px;
