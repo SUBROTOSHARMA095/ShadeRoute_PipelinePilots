@@ -711,3 +711,6 @@ app.listen(3000, () => {
         autoRefreshCacheIfStale();
     }, 60 * 60 * 1000);
 });
+
+module.exports = app;
+

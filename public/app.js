@@ -1012,8 +1012,10 @@ function loadHeatRiskZones() {
             let defaultFile = '/data/heat_risk_zones.geojson';
             let defaultDate = null;
             if (manifest && manifest.dates && manifest.dates.length) {
-                defaultDate = manifest.today;
-                const entry = manifest.dates.find(d => d.date === defaultDate) || manifest.dates[manifest.dates.length - 1];
+                const liveToday = typeof getLiveTodayDateStr === 'function' ? getLiveTodayDateStr() : manifest.today;
+                const entry = manifest.dates.find(d => d.date === liveToday)
+                           || manifest.dates.find(d => d.date === manifest.today)
+                           || manifest.dates[manifest.dates.length - 1];
                 defaultFile = `/data/${entry.file}`;
                 defaultDate = entry.date;
             }
@@ -1162,18 +1164,19 @@ function buildHeatZoneDatePicker() {
         });
     }
 
+    const activeToday = typeof getLiveTodayDateStr === 'function' ? getLiveTodayDateStr() : heatZoneManifest.today;
     select.innerHTML = heatZoneManifest.dates.map(d => {
         let label = d.date;
-        if (d.date === heatZoneManifest.today) {
+        if (d.date === activeToday) {
             label = `${d.date} (Today / Live)`;
-        } else if (d.date > heatZoneManifest.today) {
-            const diffDays = Math.round((new Date(d.date) - new Date(heatZoneManifest.today)) / (86400000));
+        } else if (d.date > activeToday) {
+            const diffDays = Math.round((new Date(d.date) - new Date(activeToday)) / (86400000));
             label = `${d.date} (+${diffDays}d Forecast)`;
         }
         return `<option value="${d.date}">${label}</option>`;
     }).join('');
 
-    select.value = currentHeatZoneDate || heatZoneManifest.today;
+    select.value = currentHeatZoneDate || activeToday;
 }
 
 let isSyncingTimeline = false;
@@ -1752,6 +1755,26 @@ function loadRightPredictionWidget() {
 
 // Robust resolver for Current Operational Day in Indian Standard Time (IST)
 function getLiveTodayDateStr() {
+    // 1. Resolve real-world current date in IST
+    let realTodayIst;
+    try {
+        realTodayIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    } catch (e) {
+        const nowIst = new Date(Date.now() + (5.5 * 60 * 60 * 1000));
+        realTodayIst = nowIst.toISOString().split('T')[0];
+    }
+
+    // 2. If real today exists in predictions, prioritize it
+    if (predictionsSummaryData && predictionsSummaryData[realTodayIst]) {
+        return realTodayIst;
+    }
+
+    // 3. If real today exists in manifest dates, prioritize it
+    if (heatZoneManifest && heatZoneManifest.dates && heatZoneManifest.dates.some(d => d.date === realTodayIst)) {
+        return realTodayIst;
+    }
+
+    // 4. Fallback to flagged active day in cached data
     if (predictionsSummaryData) {
         const todayKey = Object.keys(predictionsSummaryData).find(d => {
             const item = predictionsSummaryData[d];
@@ -1762,12 +1785,7 @@ function getLiveTodayDateStr() {
     if (heatZoneManifest && heatZoneManifest.today) {
         return heatZoneManifest.today;
     }
-    try {
-        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-    } catch (e) {
-        const nowIst = new Date(Date.now() + (5.5 * 60 * 60 * 1000));
-        return nowIst.toISOString().split('T')[0];
-    }
+    return realTodayIst;
 }
 
 // Midnight rollover watcher: when day changes in IST, automatically refresh datasets
@@ -1966,10 +1984,6 @@ function renderPredictionWidget() {
     /* Dynamic Date tabs */
     // Filter to an operational 5-day horizon window centered on Today (Yesterday, Today, +1d, +2d, +3d)
     let displayDates = availableDates.filter(d => {
-        const item = predictionsSummaryData[d];
-        if (item && typeof item.horizon === 'number') {
-            return item.horizon >= -1 && item.horizon <= 3;
-        }
         const diffDays = Math.round((new Date(d + 'T00:00:00') - new Date(todayDateStr + 'T00:00:00')) / 86400000);
         return diffDays >= -1 && diffDays <= 3;
     });
@@ -1989,10 +2003,8 @@ function renderPredictionWidget() {
         const isToday = dateStr === todayDateStr;
         const daySum = predictionsSummaryData[dateStr] || {};
         
-        // Calculate horizon offset
-        const horizon = typeof daySum.horizon === 'number'
-            ? daySum.horizon
-            : Math.round((new Date(dateStr + 'T00:00:00') - new Date(todayDateStr + 'T00:00:00')) / 86400000);
+        // Calculate horizon offset dynamically relative to current todayDateStr
+        const horizon = Math.round((new Date(dateStr + 'T00:00:00') - new Date(todayDateStr + 'T00:00:00')) / 86400000);
 
         // Warning state
         const warnClass = daySum.warning ? daySum.warning.class : 'safe';

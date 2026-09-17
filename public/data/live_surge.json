@@ -5,11 +5,11 @@
     "version": "2.1.0",
     "study_area": "Bhubaneswar (SOA ITER Campus Catchment & IMS SUM Hospital)",
     "forecast_dates": [
-      "2026-09-16",
       "2026-09-17",
       "2026-09-18",
       "2026-09-19",
-      "2026-09-20"
+      "2026-09-20",
+      "2026-09-21"
     ],
     "methodology_note": "Central estimates are epidemiology-informed planning assumptions derived from public institutional bed capacities, NCDC NAP-HRI benchmarks, and AIIMS emergency medicine protocols. They provide transparent decision support for resource readiness rather than empirical hospital admissions predictions.",
     "formula": "Surge = [P(heatwave) × beta_alert × cumulative_lag × bounded_exposure_mult] + [humidity_heat_baseline]",
@@ -164,330 +164,6 @@
     }
   },
   "daily_forecasts": {
-    "2026-09-16": {
-      "date": "2026-09-16",
-      "heatwave_probability": 0.001,
-      "is_heatwave": false,
-      "consecutive_day_index": 0,
-      "alert_level": "Routine Operations",
-      "alert_color": "#10b981",
-      "danger_window": null,
-      "unsafe_duration": "0 hours",
-      "surge_percent": 0.0,
-      "planning_range_percent": [
-        0.0,
-        0.0
-      ],
-      "surge_multiplier": 1.0,
-      "heatwave_surge_percent": 0.0,
-      "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 39.7,
-      "rh_mean_pct": 85.6,
-      "model_components": {
-        "alert_beta": 0.0,
-        "consecutive_multiplier": 1.0,
-        "exposure_multiplier": 1.0,
-        "humidity_heat_fraction": 0.0,
-        "unsafe_duration_hours": 0.0,
-        "duration_multiplier": 1.0,
-        "danger_window_multiplier": 1.0
-      },
-      "clinical_advisory": "🟢 ROUTINE READINESS: Active rainfall and overcast conditions suppress acute solar heat-health presentations. Maintain routine operations.",
-      "facility_projections": {
-        "soa_student_health_centre": {
-          "facility_name": "SOA ITER Student Health Centre",
-          "tier": "Level 1: University Student Health Service",
-          "baseline_emergency": 8,
-          "projected_emergency": 8,
-          "excess_emergency_patients": 0,
-          "emergency_surge_percent": 0.0,
-          "baseline_opd": 80,
-          "projected_opd": 80,
-          "excess_opd_patients": 0,
-          "opd_surge_percent": 0.0,
-          "capacity_beds": 8,
-          "capacity_pressure_ratio": 0.0,
-          "capacity_action_status": "NORMAL_OPERATIONS",
-          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
-          "syndromic_breakdown": {
-            "direct_heat_illness": {
-              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
-              "icd_ref": "ICD-10 T67",
-              "projected_excess_cases": 0
-            },
-            "cardiovascular_cerebrovascular": {
-              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
-              "icd_ref": "ICD-10 I20-I25, I64",
-              "projected_excess_cases": 0
-            },
-            "renal_metabolic": {
-              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
-              "icd_ref": "ICD-10 N17, E86",
-              "projected_excess_cases": 0
-            },
-            "respiratory_other": {
-              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
-              "icd_ref": "ICD-10 J44, J45",
-              "projected_excess_cases": 0
-            }
-          },
-          "resource_readiness_requirements": {
-            "dedicated_hsu_beds": 0,
-            "emergency_iv_fluid_litres": 0,
-            "rapid_cooling_stations": 0
-          },
-          "diurnal_casualty_arrival_waves": {
-            "morning_rise": {
-              "time_window": "08:00–12:00",
-              "expected_excess_cases": 0,
-              "share_percent": 15.0,
-              "clinical_mechanism": "Initial ambient heating; mild exhaustion in early outdoor commuters.",
-              "shift_recommendation": "Activate ORS corner; pre-cool hydration packs."
-            },
-            "peak_danger_window": {
-              "time_window": "12:00–16:00",
-              "expected_excess_cases": 0,
-              "share_percent": 45.0,
-              "clinical_mechanism": "Peak solar radiation & surface heat; acute sunstroke, hyperthermia, collapse.",
-              "shift_recommendation": "CRITICAL SHIFT: Double triage nurses; pre-cool IV fluids; staff all HSU beds."
-            },
-            "delayed_decompensation": {
-              "time_window": "16:00–20:00",
-              "expected_excess_cases": 0,
-              "share_percent": 30.0,
-              "clinical_mechanism": "Post-exposure dehydration wave; outdoor workers & elderly renal decompensation.",
-              "shift_recommendation": "Deploy IV rehydration teams; maintain rapid electrolyte blood testing."
-            },
-            "nocturnal_residual": {
-              "time_window": "20:00–00:00",
-              "expected_excess_cases": 0,
-              "share_percent": 10.0,
-              "clinical_mechanism": "Severe residual cardiovascular strain under elevated night temperatures.",
-              "shift_recommendation": "Monitor admitted inpatient wards for cardiac stability."
-            }
-          }
-        },
-        "jagamara_uphc": {
-          "facility_name": "Jagamara UPHC",
-          "tier": "Level 1: Govt. Urban Primary Health Centre (NHM)",
-          "baseline_emergency": 18,
-          "projected_emergency": 18,
-          "excess_emergency_patients": 0,
-          "emergency_surge_percent": 0.0,
-          "baseline_opd": 160,
-          "projected_opd": 160,
-          "excess_opd_patients": 0,
-          "opd_surge_percent": 0.0,
-          "capacity_beds": 15,
-          "capacity_pressure_ratio": 0.0,
-          "capacity_action_status": "NORMAL_OPERATIONS",
-          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
-          "syndromic_breakdown": {
-            "direct_heat_illness": {
-              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
-              "icd_ref": "ICD-10 T67",
-              "projected_excess_cases": 0
-            },
-            "cardiovascular_cerebrovascular": {
-              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
-              "icd_ref": "ICD-10 I20-I25, I64",
-              "projected_excess_cases": 0
-            },
-            "renal_metabolic": {
-              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
-              "icd_ref": "ICD-10 N17, E86",
-              "projected_excess_cases": 0
-            },
-            "respiratory_other": {
-              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
-              "icd_ref": "ICD-10 J44, J45",
-              "projected_excess_cases": 0
-            }
-          },
-          "resource_readiness_requirements": {
-            "dedicated_hsu_beds": 0,
-            "emergency_iv_fluid_litres": 0,
-            "rapid_cooling_stations": 0
-          },
-          "diurnal_casualty_arrival_waves": {
-            "morning_rise": {
-              "time_window": "08:00–12:00",
-              "expected_excess_cases": 0,
-              "share_percent": 15.0,
-              "clinical_mechanism": "Initial ambient heating; mild exhaustion in early outdoor commuters.",
-              "shift_recommendation": "Activate ORS corner; pre-cool hydration packs."
-            },
-            "peak_danger_window": {
-              "time_window": "12:00–16:00",
-              "expected_excess_cases": 0,
-              "share_percent": 45.0,
-              "clinical_mechanism": "Peak solar radiation & surface heat; acute sunstroke, hyperthermia, collapse.",
-              "shift_recommendation": "CRITICAL SHIFT: Double triage nurses; pre-cool IV fluids; staff all HSU beds."
-            },
-            "delayed_decompensation": {
-              "time_window": "16:00–20:00",
-              "expected_excess_cases": 0,
-              "share_percent": 30.0,
-              "clinical_mechanism": "Post-exposure dehydration wave; outdoor workers & elderly renal decompensation.",
-              "shift_recommendation": "Deploy IV rehydration teams; maintain rapid electrolyte blood testing."
-            },
-            "nocturnal_residual": {
-              "time_window": "20:00–00:00",
-              "expected_excess_cases": 0,
-              "share_percent": 10.0,
-              "clinical_mechanism": "Severe residual cardiovascular strain under elevated night temperatures.",
-              "shift_recommendation": "Monitor admitted inpatient wards for cardiac stability."
-            }
-          }
-        },
-        "astang_ayurveda": {
-          "facility_name": "Astang Ayurveda Hospital & Centre",
-          "tier": "Level 1-2: State Ayurvedic Hospital & Centre",
-          "baseline_emergency": 14,
-          "projected_emergency": 14,
-          "excess_emergency_patients": 0,
-          "emergency_surge_percent": 0.0,
-          "baseline_opd": 180,
-          "projected_opd": 180,
-          "excess_opd_patients": 0,
-          "opd_surge_percent": 0.0,
-          "capacity_beds": 30,
-          "capacity_pressure_ratio": 0.0,
-          "capacity_action_status": "NORMAL_OPERATIONS",
-          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
-          "syndromic_breakdown": {
-            "direct_heat_illness": {
-              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
-              "icd_ref": "ICD-10 T67",
-              "projected_excess_cases": 0
-            },
-            "cardiovascular_cerebrovascular": {
-              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
-              "icd_ref": "ICD-10 I20-I25, I64",
-              "projected_excess_cases": 0
-            },
-            "renal_metabolic": {
-              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
-              "icd_ref": "ICD-10 N17, E86",
-              "projected_excess_cases": 0
-            },
-            "respiratory_other": {
-              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
-              "icd_ref": "ICD-10 J44, J45",
-              "projected_excess_cases": 0
-            }
-          },
-          "resource_readiness_requirements": {
-            "dedicated_hsu_beds": 0,
-            "emergency_iv_fluid_litres": 0,
-            "rapid_cooling_stations": 0
-          },
-          "diurnal_casualty_arrival_waves": {
-            "morning_rise": {
-              "time_window": "08:00–12:00",
-              "expected_excess_cases": 0,
-              "share_percent": 15.0,
-              "clinical_mechanism": "Initial ambient heating; mild exhaustion in early outdoor commuters.",
-              "shift_recommendation": "Activate ORS corner; pre-cool hydration packs."
-            },
-            "peak_danger_window": {
-              "time_window": "12:00–16:00",
-              "expected_excess_cases": 0,
-              "share_percent": 45.0,
-              "clinical_mechanism": "Peak solar radiation & surface heat; acute sunstroke, hyperthermia, collapse.",
-              "shift_recommendation": "CRITICAL SHIFT: Double triage nurses; pre-cool IV fluids; staff all HSU beds."
-            },
-            "delayed_decompensation": {
-              "time_window": "16:00–20:00",
-              "expected_excess_cases": 0,
-              "share_percent": 30.0,
-              "clinical_mechanism": "Post-exposure dehydration wave; outdoor workers & elderly renal decompensation.",
-              "shift_recommendation": "Deploy IV rehydration teams; maintain rapid electrolyte blood testing."
-            },
-            "nocturnal_residual": {
-              "time_window": "20:00–00:00",
-              "expected_excess_cases": 0,
-              "share_percent": 10.0,
-              "clinical_mechanism": "Severe residual cardiovascular strain under elevated night temperatures.",
-              "shift_recommendation": "Monitor admitted inpatient wards for cardiac stability."
-            }
-          }
-        },
-        "sum_hospital": {
-          "facility_name": "IMS & SUM Hospital",
-          "tier": "Level 3: Quaternary Medical College Hospital",
-          "baseline_emergency": 210,
-          "projected_emergency": 210,
-          "excess_emergency_patients": 0,
-          "emergency_surge_percent": 0.0,
-          "baseline_opd": 3200,
-          "projected_opd": 3200,
-          "excess_opd_patients": 0,
-          "opd_surge_percent": 0.0,
-          "capacity_beds": 1750,
-          "capacity_pressure_ratio": 0.0,
-          "capacity_action_status": "NORMAL_OPERATIONS",
-          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
-          "syndromic_breakdown": {
-            "direct_heat_illness": {
-              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
-              "icd_ref": "ICD-10 T67",
-              "projected_excess_cases": 0
-            },
-            "cardiovascular_cerebrovascular": {
-              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
-              "icd_ref": "ICD-10 I20-I25, I64",
-              "projected_excess_cases": 0
-            },
-            "renal_metabolic": {
-              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
-              "icd_ref": "ICD-10 N17, E86",
-              "projected_excess_cases": 0
-            },
-            "respiratory_other": {
-              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
-              "icd_ref": "ICD-10 J44, J45",
-              "projected_excess_cases": 0
-            }
-          },
-          "resource_readiness_requirements": {
-            "dedicated_hsu_beds": 0,
-            "emergency_iv_fluid_litres": 0,
-            "rapid_cooling_stations": 0
-          },
-          "diurnal_casualty_arrival_waves": {
-            "morning_rise": {
-              "time_window": "08:00–12:00",
-              "expected_excess_cases": 0,
-              "share_percent": 15.0,
-              "clinical_mechanism": "Initial ambient heating; mild exhaustion in early outdoor commuters.",
-              "shift_recommendation": "Activate ORS corner; pre-cool hydration packs."
-            },
-            "peak_danger_window": {
-              "time_window": "12:00–16:00",
-              "expected_excess_cases": 0,
-              "share_percent": 45.0,
-              "clinical_mechanism": "Peak solar radiation & surface heat; acute sunstroke, hyperthermia, collapse.",
-              "shift_recommendation": "CRITICAL SHIFT: Double triage nurses; pre-cool IV fluids; staff all HSU beds."
-            },
-            "delayed_decompensation": {
-              "time_window": "16:00–20:00",
-              "expected_excess_cases": 0,
-              "share_percent": 30.0,
-              "clinical_mechanism": "Post-exposure dehydration wave; outdoor workers & elderly renal decompensation.",
-              "shift_recommendation": "Deploy IV rehydration teams; maintain rapid electrolyte blood testing."
-            },
-            "nocturnal_residual": {
-              "time_window": "20:00–00:00",
-              "expected_excess_cases": 0,
-              "share_percent": 10.0,
-              "clinical_mechanism": "Severe residual cardiovascular strain under elevated night temperatures.",
-              "shift_recommendation": "Monitor admitted inpatient wards for cardiac stability."
-            }
-          }
-        }
-      }
-    },
     "2026-09-17": {
       "date": "2026-09-17",
       "heatwave_probability": 0.005,
@@ -814,7 +490,7 @@
     },
     "2026-09-18": {
       "date": "2026-09-18",
-      "heatwave_probability": 0.008,
+      "heatwave_probability": 0.004,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -829,8 +505,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 41.2,
-      "rh_mean_pct": 89.6,
+      "apparent_temp_max": 41.4,
+      "rh_mean_pct": 88.8,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1138,7 +814,7 @@
     },
     "2026-09-19": {
       "date": "2026-09-19",
-      "heatwave_probability": 0.005,
+      "heatwave_probability": 0.014,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -1153,8 +829,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 39.4,
-      "rh_mean_pct": 91.0,
+      "apparent_temp_max": 40.6,
+      "rh_mean_pct": 91.9,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1477,8 +1153,332 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 39.7,
-      "rh_mean_pct": 91.0,
+      "apparent_temp_max": 38.7,
+      "rh_mean_pct": 88.4,
+      "model_components": {
+        "alert_beta": 0.0,
+        "consecutive_multiplier": 1.0,
+        "exposure_multiplier": 1.0,
+        "humidity_heat_fraction": 0.0,
+        "unsafe_duration_hours": 0.0,
+        "duration_multiplier": 1.0,
+        "danger_window_multiplier": 1.0
+      },
+      "clinical_advisory": "🟢 ROUTINE READINESS: Active rainfall and overcast conditions suppress acute solar heat-health presentations. Maintain routine operations.",
+      "facility_projections": {
+        "soa_student_health_centre": {
+          "facility_name": "SOA ITER Student Health Centre",
+          "tier": "Level 1: University Student Health Service",
+          "baseline_emergency": 8,
+          "projected_emergency": 8,
+          "excess_emergency_patients": 0,
+          "emergency_surge_percent": 0.0,
+          "baseline_opd": 80,
+          "projected_opd": 80,
+          "excess_opd_patients": 0,
+          "opd_surge_percent": 0.0,
+          "capacity_beds": 8,
+          "capacity_pressure_ratio": 0.0,
+          "capacity_action_status": "NORMAL_OPERATIONS",
+          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 0
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 0
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 0
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 0
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 0,
+            "emergency_iv_fluid_litres": 0,
+            "rapid_cooling_stations": 0
+          },
+          "diurnal_casualty_arrival_waves": {
+            "morning_rise": {
+              "time_window": "08:00–12:00",
+              "expected_excess_cases": 0,
+              "share_percent": 15.0,
+              "clinical_mechanism": "Initial ambient heating; mild exhaustion in early outdoor commuters.",
+              "shift_recommendation": "Activate ORS corner; pre-cool hydration packs."
+            },
+            "peak_danger_window": {
+              "time_window": "12:00–16:00",
+              "expected_excess_cases": 0,
+              "share_percent": 45.0,
+              "clinical_mechanism": "Peak solar radiation & surface heat; acute sunstroke, hyperthermia, collapse.",
+              "shift_recommendation": "CRITICAL SHIFT: Double triage nurses; pre-cool IV fluids; staff all HSU beds."
+            },
+            "delayed_decompensation": {
+              "time_window": "16:00–20:00",
+              "expected_excess_cases": 0,
+              "share_percent": 30.0,
+              "clinical_mechanism": "Post-exposure dehydration wave; outdoor workers & elderly renal decompensation.",
+              "shift_recommendation": "Deploy IV rehydration teams; maintain rapid electrolyte blood testing."
+            },
+            "nocturnal_residual": {
+              "time_window": "20:00–00:00",
+              "expected_excess_cases": 0,
+              "share_percent": 10.0,
+              "clinical_mechanism": "Severe residual cardiovascular strain under elevated night temperatures.",
+              "shift_recommendation": "Monitor admitted inpatient wards for cardiac stability."
+            }
+          }
+        },
+        "jagamara_uphc": {
+          "facility_name": "Jagamara UPHC",
+          "tier": "Level 1: Govt. Urban Primary Health Centre (NHM)",
+          "baseline_emergency": 18,
+          "projected_emergency": 18,
+          "excess_emergency_patients": 0,
+          "emergency_surge_percent": 0.0,
+          "baseline_opd": 160,
+          "projected_opd": 160,
+          "excess_opd_patients": 0,
+          "opd_surge_percent": 0.0,
+          "capacity_beds": 15,
+          "capacity_pressure_ratio": 0.0,
+          "capacity_action_status": "NORMAL_OPERATIONS",
+          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 0
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 0
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 0
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 0
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 0,
+            "emergency_iv_fluid_litres": 0,
+            "rapid_cooling_stations": 0
+          },
+          "diurnal_casualty_arrival_waves": {
+            "morning_rise": {
+              "time_window": "08:00–12:00",
+              "expected_excess_cases": 0,
+              "share_percent": 15.0,
+              "clinical_mechanism": "Initial ambient heating; mild exhaustion in early outdoor commuters.",
+              "shift_recommendation": "Activate ORS corner; pre-cool hydration packs."
+            },
+            "peak_danger_window": {
+              "time_window": "12:00–16:00",
+              "expected_excess_cases": 0,
+              "share_percent": 45.0,
+              "clinical_mechanism": "Peak solar radiation & surface heat; acute sunstroke, hyperthermia, collapse.",
+              "shift_recommendation": "CRITICAL SHIFT: Double triage nurses; pre-cool IV fluids; staff all HSU beds."
+            },
+            "delayed_decompensation": {
+              "time_window": "16:00–20:00",
+              "expected_excess_cases": 0,
+              "share_percent": 30.0,
+              "clinical_mechanism": "Post-exposure dehydration wave; outdoor workers & elderly renal decompensation.",
+              "shift_recommendation": "Deploy IV rehydration teams; maintain rapid electrolyte blood testing."
+            },
+            "nocturnal_residual": {
+              "time_window": "20:00–00:00",
+              "expected_excess_cases": 0,
+              "share_percent": 10.0,
+              "clinical_mechanism": "Severe residual cardiovascular strain under elevated night temperatures.",
+              "shift_recommendation": "Monitor admitted inpatient wards for cardiac stability."
+            }
+          }
+        },
+        "astang_ayurveda": {
+          "facility_name": "Astang Ayurveda Hospital & Centre",
+          "tier": "Level 1-2: State Ayurvedic Hospital & Centre",
+          "baseline_emergency": 14,
+          "projected_emergency": 14,
+          "excess_emergency_patients": 0,
+          "emergency_surge_percent": 0.0,
+          "baseline_opd": 180,
+          "projected_opd": 180,
+          "excess_opd_patients": 0,
+          "opd_surge_percent": 0.0,
+          "capacity_beds": 30,
+          "capacity_pressure_ratio": 0.0,
+          "capacity_action_status": "NORMAL_OPERATIONS",
+          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 0
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 0
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 0
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 0
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 0,
+            "emergency_iv_fluid_litres": 0,
+            "rapid_cooling_stations": 0
+          },
+          "diurnal_casualty_arrival_waves": {
+            "morning_rise": {
+              "time_window": "08:00–12:00",
+              "expected_excess_cases": 0,
+              "share_percent": 15.0,
+              "clinical_mechanism": "Initial ambient heating; mild exhaustion in early outdoor commuters.",
+              "shift_recommendation": "Activate ORS corner; pre-cool hydration packs."
+            },
+            "peak_danger_window": {
+              "time_window": "12:00–16:00",
+              "expected_excess_cases": 0,
+              "share_percent": 45.0,
+              "clinical_mechanism": "Peak solar radiation & surface heat; acute sunstroke, hyperthermia, collapse.",
+              "shift_recommendation": "CRITICAL SHIFT: Double triage nurses; pre-cool IV fluids; staff all HSU beds."
+            },
+            "delayed_decompensation": {
+              "time_window": "16:00–20:00",
+              "expected_excess_cases": 0,
+              "share_percent": 30.0,
+              "clinical_mechanism": "Post-exposure dehydration wave; outdoor workers & elderly renal decompensation.",
+              "shift_recommendation": "Deploy IV rehydration teams; maintain rapid electrolyte blood testing."
+            },
+            "nocturnal_residual": {
+              "time_window": "20:00–00:00",
+              "expected_excess_cases": 0,
+              "share_percent": 10.0,
+              "clinical_mechanism": "Severe residual cardiovascular strain under elevated night temperatures.",
+              "shift_recommendation": "Monitor admitted inpatient wards for cardiac stability."
+            }
+          }
+        },
+        "sum_hospital": {
+          "facility_name": "IMS & SUM Hospital",
+          "tier": "Level 3: Quaternary Medical College Hospital",
+          "baseline_emergency": 210,
+          "projected_emergency": 210,
+          "excess_emergency_patients": 0,
+          "emergency_surge_percent": 0.0,
+          "baseline_opd": 3200,
+          "projected_opd": 3200,
+          "excess_opd_patients": 0,
+          "opd_surge_percent": 0.0,
+          "capacity_beds": 1750,
+          "capacity_pressure_ratio": 0.0,
+          "capacity_action_status": "NORMAL_OPERATIONS",
+          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
+          "syndromic_breakdown": {
+            "direct_heat_illness": {
+              "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
+              "icd_ref": "ICD-10 T67",
+              "projected_excess_cases": 0
+            },
+            "cardiovascular_cerebrovascular": {
+              "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
+              "icd_ref": "ICD-10 I20-I25, I64",
+              "projected_excess_cases": 0
+            },
+            "renal_metabolic": {
+              "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
+              "icd_ref": "ICD-10 N17, E86",
+              "projected_excess_cases": 0
+            },
+            "respiratory_other": {
+              "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
+              "icd_ref": "ICD-10 J44, J45",
+              "projected_excess_cases": 0
+            }
+          },
+          "resource_readiness_requirements": {
+            "dedicated_hsu_beds": 0,
+            "emergency_iv_fluid_litres": 0,
+            "rapid_cooling_stations": 0
+          },
+          "diurnal_casualty_arrival_waves": {
+            "morning_rise": {
+              "time_window": "08:00–12:00",
+              "expected_excess_cases": 0,
+              "share_percent": 15.0,
+              "clinical_mechanism": "Initial ambient heating; mild exhaustion in early outdoor commuters.",
+              "shift_recommendation": "Activate ORS corner; pre-cool hydration packs."
+            },
+            "peak_danger_window": {
+              "time_window": "12:00–16:00",
+              "expected_excess_cases": 0,
+              "share_percent": 45.0,
+              "clinical_mechanism": "Peak solar radiation & surface heat; acute sunstroke, hyperthermia, collapse.",
+              "shift_recommendation": "CRITICAL SHIFT: Double triage nurses; pre-cool IV fluids; staff all HSU beds."
+            },
+            "delayed_decompensation": {
+              "time_window": "16:00–20:00",
+              "expected_excess_cases": 0,
+              "share_percent": 30.0,
+              "clinical_mechanism": "Post-exposure dehydration wave; outdoor workers & elderly renal decompensation.",
+              "shift_recommendation": "Deploy IV rehydration teams; maintain rapid electrolyte blood testing."
+            },
+            "nocturnal_residual": {
+              "time_window": "20:00–00:00",
+              "expected_excess_cases": 0,
+              "share_percent": 10.0,
+              "clinical_mechanism": "Severe residual cardiovascular strain under elevated night temperatures.",
+              "shift_recommendation": "Monitor admitted inpatient wards for cardiac stability."
+            }
+          }
+        }
+      }
+    },
+    "2026-09-21": {
+      "date": "2026-09-21",
+      "heatwave_probability": 0.004,
+      "is_heatwave": false,
+      "consecutive_day_index": 0,
+      "alert_level": "Routine Operations",
+      "alert_color": "#10b981",
+      "danger_window": null,
+      "unsafe_duration": "0 hours",
+      "surge_percent": 0.0,
+      "planning_range_percent": [
+        0.0,
+        0.0
+      ],
+      "surge_multiplier": 1.0,
+      "heatwave_surge_percent": 0.0,
+      "humidity_heat_surge_percent": 0.0,
+      "apparent_temp_max": 34.6,
+      "rh_mean_pct": 93.2,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
