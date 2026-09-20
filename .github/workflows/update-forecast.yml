@@ -44,11 +44,20 @@ jobs:
 
       - name: Trigger Vercel redeploy
         if: success()
+        env:
+          VERCEL_DEPLOY_HOOK_MAIN: ${{ secrets.VERCEL_DEPLOY_HOOK_MAIN }}
+          VERCEL_DEPLOY_HOOK_BETA: ${{ secrets.VERCEL_DEPLOY_HOOK_BETA }}
         run: |
+          HOOK_URL=""
           if [ "${{ matrix.branch }}" = "main" ]; then
-            curl -s -X POST "https://api.vercel.com/v1/integrations/deploy/prj_mMTdxS53j8m0eDeG9wVfAgIjd60c/qcW0PX0Tvn"
-            echo "Triggered Vercel redeploy for main branch"
+            HOOK_URL="$VERCEL_DEPLOY_HOOK_MAIN"
           elif [ "${{ matrix.branch }}" = "beta" ]; then
-            curl -s -X POST "https://api.vercel.com/v1/integrations/deploy/prj_B7O9b9omrrI4AxmtF2dOgU7AZ8xf/zqmbq9SBqs"
-            echo "Triggered Vercel redeploy for beta branch"
+            HOOK_URL="$VERCEL_DEPLOY_HOOK_BETA"
+          fi
+
+          if [ -n "$HOOK_URL" ]; then
+            curl -s -X POST "$HOOK_URL"
+            echo "Triggered Vercel redeploy for ${{ matrix.branch }} branch"
+          else
+            echo "Vercel deploy hook for ${{ matrix.branch }} is not set. To enable auto-redeploy, add VERCEL_DEPLOY_HOOK_MAIN and VERCEL_DEPLOY_HOOK_BETA in GitHub Repo Settings -> Secrets and variables -> Actions."
           fi
