@@ -1,4 +1,4 @@
-name: Daily NWP Forecast & Date Sync
+name: Daily NWP Forecast & Date Sync (Beta)
 
 on:
   schedule:
@@ -12,16 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        branch: [main, beta]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.branch }}
+          ref: beta
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -40,24 +36,17 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add public/data/
           git commit -m "Auto-update live forecast & timeline dates [skip ci]" || exit 0
-          git push origin ${{ matrix.branch }}
+          git push origin beta
 
       - name: Trigger Vercel redeploy
         if: success()
         env:
-          VERCEL_DEPLOY_HOOK_MAIN: ${{ secrets.VERCEL_DEPLOY_HOOK_MAIN }}
           VERCEL_DEPLOY_HOOK_BETA: ${{ secrets.VERCEL_DEPLOY_HOOK_BETA }}
         run: |
-          HOOK_URL=""
-          if [ "${{ matrix.branch }}" = "main" ]; then
-            HOOK_URL="$VERCEL_DEPLOY_HOOK_MAIN"
-          elif [ "${{ matrix.branch }}" = "beta" ]; then
-            HOOK_URL="$VERCEL_DEPLOY_HOOK_BETA"
+          if [ -n "$VERCEL_DEPLOY_HOOK_BETA" ]; then
+            curl -s -X POST "$VERCEL_DEPLOY_HOOK_BETA"
+            echo "Triggered Vercel redeploy for beta branch"
+          else
+            echo "Vercel deploy hook for beta is not set. To enable auto-redeploy, add VERCEL_DEPLOY_HOOK_BETA in GitHub Repo Settings -> Secrets and variables -> Actions."
           fi
 
-          if [ -n "$HOOK_URL" ]; then
-            curl -s -X POST "$HOOK_URL"
-            echo "Triggered Vercel redeploy for ${{ matrix.branch }} branch"
-          else
-            echo "Vercel deploy hook for ${{ matrix.branch }} is not set. To enable auto-redeploy, add VERCEL_DEPLOY_HOOK_MAIN and VERCEL_DEPLOY_HOOK_BETA in GitHub Repo Settings -> Secrets and variables -> Actions."
-          fi
