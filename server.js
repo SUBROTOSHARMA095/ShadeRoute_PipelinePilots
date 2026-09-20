@@ -42,6 +42,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Path pointing directly to ROOT/public/data
 const PUBLIC_DATA_DIR = path.join(__dirname, 'public', 'data');
 
+// Vercel serverless detection — skip Python pipeline attempts on Vercel
+const IS_VERCEL = Boolean(process.env.VERCEL);
+
 
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -140,6 +143,11 @@ function autoRefreshCacheIfStale() {
     }
 
     if ((mtime === 0 || age > CACHE_MAX_AGE_MS || isMidnightRollover) && !isForecastRunning) {
+        if (IS_VERCEL) {
+            // On Vercel serverless, Python is unavailable. Forecast data is refreshed via
+            // GitHub Actions cron (twice daily) which commits fresh data and triggers redeploy.
+            return;
+        }
         console.log(`[Cache] Live forecast requires recalibration (age: ${(age / 3600000).toFixed(1)}h, midnightRollover: ${isMidnightRollover}). Running live NWP pipeline...`);
         runLiveForecastScript().catch(err => console.warn('[Cache Refresh Failed]:', err.message));
     }
@@ -169,6 +177,61 @@ function sendJsonWithFallback(res, liveFileName, fallbackFileName) {
 }
 
 // ============================================================
+// VERCEL DATE RECALIBRATION — Adjusts stale cached prediction
+// horizon/is_today labels in-memory so the frontend always shows
+// the correct "TODAY" and "+1d/+2d/+3d" badges without Python.
+// ============================================================
+function recalibratePredictionDates(data) {
+    if (!data || typeof data !== 'object') return data;
+
+    // Resolve current IST date
+    let todayIstStr;
+    try {
+        todayIstStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    } catch (e) {
+        const nowIst = new Date(Date.now() + (5.5 * 60 * 60 * 1000));
+        todayIstStr = nowIst.toISOString().split('T')[0];
+    }
+
+    // Fast path: if already calibrated for today, return as-is
+    const todayEntry = data[todayIstStr];
+    if (todayEntry && todayEntry.horizon === 0 && todayEntry.is_today === true) {
+        return data;
+    }
+
+    // Recalibrate horizon offsets, is_today, is_historical relative to real IST today
+    const recalibrated = {};
+    const todayMs = new Date(todayIstStr + 'T00:00:00').getTime();
+
+    for (const [dateStr, entry] of Object.entries(data)) {
+        const entryMs = new Date(dateStr + 'T00:00:00').getTime();
+        const diffDays = Math.round((entryMs - todayMs) / 86400000);
+
+        // Only include dates within the operational window: yesterday to +3 days
+        if (diffDays < -1 || diffDays > 3) continue;
+
+        const r = Object.assign({}, entry);
+        r.horizon = diffDays;
+        r.is_today = (diffDays === 0);
+
+        if (diffDays < 0) {
+            r.is_historical = true;
+            r.history_label = diffDays === -1
+                ? 'Yesterday (Observed & Verified)'
+                : Math.abs(diffDays) + ' days ago';
+        } else {
+            r.is_historical = false;
+            if (r.history_label) delete r.history_label;
+            r.forecast_kind = diffDays === 0 ? 'same_day_nowcast' : 'day_ahead_probability';
+        }
+
+        recalibrated[dateStr] = r;
+    }
+
+    return recalibrated;
+}
+
+// ============================================================
 // REST API ENDPOINTS
 // ============================================================
 
@@ -191,8 +254,27 @@ app.get('/api/predictions/hourly', (req, res) => {
 });
 
 // 3. GET /api/predictions/live -> public/data/live_predictions.json (V2 Live NWP)
+//    On Vercel, applies in-memory date recalibration so horizon labels stay correct
 app.get('/api/predictions/live', (req, res) => {
-    sendJsonWithFallback(res, 'live_predictions.json', 'predictions_may2026.json');
+    autoRefreshCacheIfStale();
+    const livePath = path.join(PUBLIC_DATA_DIR, 'live_predictions.json');
+    const fallbackPath = path.join(PUBLIC_DATA_DIR, 'predictions_may2026.json');
+
+    fs.readFile(livePath, 'utf8', (err, data) => {
+        if (!err) {
+            try {
+                return res.json(recalibratePredictionDates(JSON.parse(data)));
+            } catch (parseErr) {
+                console.warn('[JSON Parse Error] live_predictions.json, falling back');
+            }
+        }
+        fs.readFile(fallbackPath, 'utf8', (fallbackErr, fbData) => {
+            if (fallbackErr) {
+                return res.status(500).json({ error: 'Neither live_predictions.json nor predictions_may2026.json available.' });
+            }
+            res.json(recalibratePredictionDates(JSON.parse(fbData)));
+        });
+    });
 });
 
 // 4. GET /api/predictions/hourly/live -> public/data/live_hourly_forecast.json (V2 Direct Hourly NWP)

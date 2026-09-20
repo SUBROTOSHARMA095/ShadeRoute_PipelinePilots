@@ -2,26 +2,26 @@ name: Daily NWP Forecast & Date Sync
 
 on:
   schedule:
-    # Runs every day at 18:30 UTC (00:00 midnight IST)
-    - cron: '30 18 * * *'
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to update'
-        required: true
-        default: 'beta'
+    # Runs twice daily to keep Vercel deployments fresh with current forecasts
+    - cron: '30 18 * * *'   # 00:00 midnight IST (18:30 UTC)
+    - cron: '30 0 * * *'    # 06:00 AM IST (00:30 UTC)
+  workflow_dispatch: {}
 
 jobs:
   update-forecast:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [main, beta]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch || 'beta' }}
+          ref: ${{ matrix.branch }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,12 +29,10 @@ jobs:
           python-version: '3.11'
 
       - name: Install ML dependencies
-        run: |
-          pip install requests pandas numpy scikit-learn
+        run: pip install requests pandas numpy scikit-learn
 
       - name: Run Live NWP Forecast Pipeline
-        run: |
-          python ml/live_nwp_forecast.py
+        run: python ml/live_nwp_forecast.py
 
       - name: Commit and push updated forecast data
         run: |
@@ -42,4 +40,15 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add public/data/
           git commit -m "Auto-update live forecast & timeline dates [skip ci]" || exit 0
-          git push origin ${{ github.event.inputs.branch || 'beta' }}
+          git push origin ${{ matrix.branch }}
+
+      - name: Trigger Vercel redeploy
+        if: success()
+        run: |
+          if [ "${{ matrix.branch }}" = "main" ]; then
+            curl -s -X POST "https://api.vercel.com/v1/integrations/deploy/prj_mMTdxS53j8m0eDeG9wVfAgIjd60c/qcW0PX0Tvn"
+            echo "Triggered Vercel redeploy for main branch"
+          elif [ "${{ matrix.branch }}" = "beta" ]; then
+            curl -s -X POST "https://api.vercel.com/v1/integrations/deploy/prj_B7O9b9omrrI4AxmtF2dOgU7AZ8xf/zqmbq9SBqs"
+            echo "Triggered Vercel redeploy for beta branch"
+          fi
