@@ -43,13 +43,18 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # Pull latest remote changes FIRST — before staging anything.
+          # This avoids "cannot pull with rebase: You have unstaged changes"
+          # caused by files the Python script writes outside public/data/.
+          git stash --include-untracked
+          git pull --rebase origin ${{ matrix.branch }}
+          git stash pop || true
           git add public/data/
           if git diff --staged --quiet; then
             echo "No forecast changes detected in public/data/ to commit."
           else
             echo "Staged changes detected in public/data/. Committing and pushing..."
             git commit -m "Auto-update live forecast & timeline dates [skip ci]"
-            git pull --rebase origin ${{ matrix.branch }}
             git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ matrix.branch }}
             echo "Successfully updated and pushed forecast data to ${{ matrix.branch }}"
           fi
