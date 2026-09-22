@@ -197,6 +197,9 @@ def calculate_effective_heat_index(
 
 def fetch_dynamic_weather(start_date: str, yesterday_date: str, forecast_end_date: str) -> pd.DataFrame:
     """Fetches historical archive data up to yesterday, and live forecast for next 3 days."""
+    headers = {
+        "User-Agent": "ShadeRoute-PipelinePilots/1.0 (https://github.com/SUBROTOSHARMA095/ShadeRoute_PipelinePilots; contact@shaderoute.org)"
+    }
     print(f"[FETCH] Ingesting archive weather from {start_date} to {yesterday_date}...")
     
     # 1. Historical Archive (fetching temperature, humidity, wind, solar radiation, precipitation, rain, cloud cover)
@@ -207,10 +210,20 @@ def fetch_dynamic_weather(start_date: str, yesterday_date: str, forecast_end_dat
         f"&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,direct_normal_irradiance,precipitation,rain,cloud_cover"
         f"&timezone=auto"
     )
-    r_arch = requests.get(archive_url, timeout=30)
-    r_arch.raise_for_status()
-    d_arch = r_arch.json().get("hourly", {})
-    df_arch = pd.DataFrame(d_arch)
+    df_arch = pd.DataFrame()
+    for attempt in range(1, 4):
+        try:
+            r_arch = requests.get(archive_url, headers=headers, timeout=25)
+            r_arch.raise_for_status()
+            d_arch = r_arch.json().get("hourly", {})
+            df_arch = pd.DataFrame(d_arch)
+            break
+        except Exception as err:
+            print(f"[WARN] Archive fetch attempt {attempt}/3 failed: {err}")
+            if attempt < 3:
+                time.sleep(2)
+            else:
+                print(f"[WARN] Proceeding without fresh archive data: {err}")
 
     # 2. Live Forecast for Today + Next 2-3 Days
     print(f"[FETCH] Ingesting live forecast from Open-Meteo for next 3 days...")
@@ -221,10 +234,20 @@ def fetch_dynamic_weather(start_date: str, yesterday_date: str, forecast_end_dat
         f"&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,direct_normal_irradiance,precipitation,rain,cloud_cover"
         f"&timezone=auto"
     )
-    r_fore = requests.get(forecast_url, timeout=15)
-    r_fore.raise_for_status()
-    d_fore = r_fore.json().get("hourly", {})
-    df_fore = pd.DataFrame(d_fore)
+    df_fore = pd.DataFrame()
+    for attempt in range(1, 4):
+        try:
+            r_fore = requests.get(forecast_url, headers=headers, timeout=20)
+            r_fore.raise_for_status()
+            d_fore = r_fore.json().get("hourly", {})
+            df_fore = pd.DataFrame(d_fore)
+            break
+        except Exception as err:
+            print(f"[WARN] Forecast fetch attempt {attempt}/3 failed: {err}")
+            if attempt < 3:
+                time.sleep(2)
+            else:
+                raise
 
     # Combine & harmonize
     df_all = pd.concat([df_arch, df_fore], ignore_index=True)
@@ -279,12 +302,12 @@ def run_timeline_expansion():
         f["properties"].get("vulnerability_index", 0.25) for f in features_template
     ], dtype=float)
 
-    # Dates to fetch
-    start_fetch_date = "2026-05-13"
-    # System local date
+    # Dates to fetch: sliding active window (2 days prior to ensure continuous lag, plus today and next 3 days forecast).
+    # All earlier historical dates are already cached and preserved in manifest.json and public/data/timeline/.
     now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
     today_str = now.strftime("%Y-%m-%d")
     yesterday_str = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    start_fetch_date = (now - timedelta(days=2)).strftime("%Y-%m-%d")
     forecast_end_str = (now + timedelta(days=3)).strftime("%Y-%m-%d")
 
     weather_df = fetch_dynamic_weather(start_fetch_date, yesterday_str, forecast_end_str)

@@ -23,6 +23,7 @@ if sys.platform == "win32":
 
 import json
 import math
+import time
 import pickle
 import requests
 import numpy as np
@@ -228,18 +229,29 @@ def fetch_live_nwp_forecast(test_storm_mode: bool = False) -> pd.DataFrame:
         "timezone": "auto",
     }
 
-    try:
-        resp = requests.get(NWP_API_URL, params=params, timeout=15)
-        resp.raise_for_status()
-        data = resp.json().get("hourly", {})
-        df = validate_hourly_forecast(pd.DataFrame(data))
-        print(f"[NWP] Successfully received {len(df)} hourly forecast records.")
-    except Exception as err:
-        print(f"[NWP ERROR] Failed to fetch live forecast from Open-Meteo: {err}")
-        if HOURLY_JSON.exists():
-            print("[NWP] Falling back to existing cached forecast.")
-            return None
-        raise
+    headers = {
+        "User-Agent": "ShadeRoute-PipelinePilots/1.0 (https://github.com/SUBROTOSHARMA095/ShadeRoute_PipelinePilots; contact@shaderoute.org)"
+    }
+
+    last_err = None
+    for attempt in range(1, 4):
+        try:
+            resp = requests.get(NWP_API_URL, params=params, headers=headers, timeout=20)
+            resp.raise_for_status()
+            data = resp.json().get("hourly", {})
+            df = validate_hourly_forecast(pd.DataFrame(data))
+            print(f"[NWP] Successfully received {len(df)} hourly forecast records.")
+            last_err = None
+            break
+        except Exception as err:
+            last_err = err
+            print(f"[NWP WARN] Attempt {attempt}/3 failed to fetch live forecast from Open-Meteo: {err}")
+            if attempt < 3:
+                time.sleep(2)
+
+    if last_err is not None:
+        print(f"[NWP ERROR] All attempts failed to fetch live forecast from Open-Meteo: {last_err}")
+        raise last_err
 
     if test_storm_mode:
         print("[TEST MODE] Injecting convective low-pressure storm scenario on Day 2...")
@@ -914,21 +926,27 @@ def generate_live_predictions(hourly_df: pd.DataFrame):
 
 
 def run_live_forecast(test_storm_mode: bool = False):
-    """Main execution function with fallback to cached files if offline."""
+    """Main execution function."""
     try:
         hourly_df = fetch_live_nwp_forecast(test_storm_mode=test_storm_mode)
         if hourly_df is not None:
             return generate_live_predictions(hourly_df)
+        else:
+            raise RuntimeError("Live NWP forecast fetch returned no data.")
     except Exception as e:
         print(f"[ERROR] Live NWP execution failed: {e}")
-        # If files already exist, don't crash
-        if PREDICTIONS_JSON.exists():
-            print(f"[FALLBACK] Retaining existing {PREDICTIONS_JSON}.")
-            return None
-        else:
-            raise
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 if __name__ == "__main__":
     test_mode = "--test-storm" in sys.argv
-    run_live_forecast(test_storm_mode=test_mode)
+    try:
+        res = run_live_forecast(test_storm_mode=test_mode)
+        if res is None:
+            print("[ERROR] NWP forecast pipeline returned no results!")
+            sys.exit(1)
+    except Exception as e:
+        print(f"[FATAL] Live forecast execution halted: {e}")
+        sys.exit(1)

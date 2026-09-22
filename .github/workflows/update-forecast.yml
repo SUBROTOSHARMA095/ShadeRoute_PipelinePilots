@@ -22,14 +22,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ matrix.branch }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.13'
 
       - name: Install ML dependencies
-        run: pip install requests pandas numpy scikit-learn
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pandas numpy scikit-learn==1.8.0
 
       - name: Run Live NWP Forecast Pipeline
         run: python ml/live_nwp_forecast.py
@@ -39,8 +42,15 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add public/data/
-          git commit -m "Auto-update live forecast & timeline dates" || exit 0
-          git push origin ${{ matrix.branch }}
+          if git diff --staged --quiet; then
+            echo "No forecast changes detected in public/data/ to commit."
+          else
+            echo "Staged changes detected in public/data/. Committing and pushing..."
+            git commit -m "Auto-update live forecast & timeline dates [skip ci]"
+            git pull --rebase origin ${{ matrix.branch }}
+            git push origin ${{ matrix.branch }}
+            echo "Successfully updated and pushed forecast data to ${{ matrix.branch }}"
+          fi
 
       - name: Trigger Vercel redeploy
         if: success()
