@@ -490,7 +490,7 @@
     },
     "2026-09-23": {
       "date": "2026-09-23",
-      "heatwave_probability": 0.005,
+      "heatwave_probability": 0.006,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -505,8 +505,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 33.1,
-      "rh_mean_pct": 93.1,
+      "apparent_temp_max": 32.4,
+      "rh_mean_pct": 93.6,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -814,7 +814,7 @@
     },
     "2026-09-24": {
       "date": "2026-09-24",
-      "heatwave_probability": 0.011,
+      "heatwave_probability": 0.007,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -829,8 +829,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 32.2,
-      "rh_mean_pct": 93.5,
+      "apparent_temp_max": 31.9,
+      "rh_mean_pct": 93.0,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1153,8 +1153,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 32.9,
-      "rh_mean_pct": 89.5,
+      "apparent_temp_max": 32.6,
+      "rh_mean_pct": 89.2,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1462,7 +1462,7 @@
     },
     "2026-09-26": {
       "date": "2026-09-26",
-      "heatwave_probability": 0.006,
+      "heatwave_probability": 0.008,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -1477,8 +1477,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 35.5,
-      "rh_mean_pct": 84.2,
+      "apparent_temp_max": 35.9,
+      "rh_mean_pct": 86.0,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
