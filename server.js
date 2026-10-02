@@ -397,6 +397,7 @@ app.post('/api/timeline/sync', async (req, res) => {
 // ============================================================
 // IRA (इरा) AI ASSISTANT & GOOGLE GEMINI API ENDPOINTS
 // ============================================================
+const { assembleGroundedContext } = require('./scripts/rag_engine');
 
 const IRA_SYSTEM_INSTRUCTION = `You are Ira (इरा), the friendly, wise, and highly capable AI Climate & Campus Guide for ShadeRoute — an urban microclimate digital twin and heat resilience platform for the SOA ITER Campus in Bhubaneswar, Odisha, India (10m x 10m high-resolution spatial grid).
 
@@ -471,8 +472,8 @@ function cleanConfidentialFormulas(text) {
 // ============================================================
 // GEMINI API RATE LIMITING & CREDIT CONSERVATION (Free Tier)
 // ============================================================
-const GEMINI_RPM_LIMIT = 12; // Free tier ceiling is 15 RPM; limit to 12 for safety
-const GEMINI_DAILY_LIMIT = parseInt(process.env.GEMINI_DAILY_LIMIT, 10) || 800; // Free tier ceiling is 1500 RPD
+const GEMINI_RPM_LIMIT = 15; // Free tier ceiling is 15 RPM
+const GEMINI_DAILY_LIMIT = parseInt(process.env.GEMINI_DAILY_LIMIT, 10) || 1500; // Free tier ceiling is 1500 RPD
 let geminiTimestamps = [];
 let geminiDailyCount = 0;
 let geminiCurrentDay = new Date().toISOString().slice(0, 10);
@@ -508,9 +509,9 @@ function recordGeminiRequestSuccess() {
 }
 
 function recordGeminiQuotaExceeded() {
-    // 5-minute circuit breaker on HTTP 429
-    geminiCooldownUntil = Date.now() + 5 * 60 * 1000;
-    console.warn('[Gemini Quota] HTTP 429 / credit limit hit. Activating 5-min cooldown to conserve free tier credits.');
+    // 30-second circuit breaker on HTTP 429 (short pause, not punitive)
+    geminiCooldownUntil = Date.now() + 30 * 1000;
+    console.warn('[Gemini Quota] HTTP 429 across all candidate models. Activating 30s cooldown.');
 }
 
 // ============================================================
@@ -643,12 +644,14 @@ function generateIraFallbackReply(prompt, lang = 'en') {
     return { reply, triggerTour: false, source: 'deterministic-fallback' };
 }
 
-// Config endpoint: reports if Gemini API is available and quota state
+// Config endpoint: reports if Gemini API is available, active model, and RAG state
 app.get('/api/assistant/config', (req, res) => {
     const hasKey = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
     const quotaState = checkGeminiQuotaAvailable();
     res.json({
         assistantName: 'Ira (इरा)',
+        model: 'gemini-3.5-flash',
+        ragActive: true,
         hasGeminiKey: hasKey,
         geminiActive: hasKey && quotaState.allowed,
         creditsRemainingToday: Math.max(0, GEMINI_DAILY_LIMIT - geminiDailyCount),
@@ -656,7 +659,7 @@ app.get('/api/assistant/config', (req, res) => {
     });
 });
 
-// Chat endpoint: connects to Google Gemini API (gemini-3.6-flash) with smart credit limit & deterministic fallback
+// Chat endpoint: connects to Google Gemini API (gemini-3.5-flash) with RAG grounded context & smart fallback
 app.post('/api/assistant/chat', async (req, res) => {
     const { prompt, language = 'en', history = [] } = req.body || {};
 
@@ -670,12 +673,28 @@ app.post('/api/assistant/chat', async (req, res) => {
     // Check if client explicitly asks for a tour
     const wantsTour = /tour|tutorial|demonstrat|show me around|ট্যুর|दौरा|ट्यूटोरियल|ଟୁର୍/i.test(trimmedPrompt);
 
+    // Dynamic RAG grounded context retrieval
+    let ragContextText = '';
+    let ragSources = [];
+    try {
+        const ragData = await assembleGroundedContext(trimmedPrompt, effectiveApiKey);
+        if (ragData) {
+            ragContextText = ragData.contextText || '';
+            ragSources = (ragData.ragResults || []).map(r => ({
+                title: r.title,
+                category: r.category_label || r.category
+            }));
+        }
+    } catch (ragErr) {
+        console.warn('[Ira AI] RAG context retrieval notice:', ragErr.message);
+    }
+
     // Check quota / credit limits for free tier conservation
     const quota = checkGeminiQuotaAvailable();
 
     if (effectiveApiKey && quota.allowed) {
         try {
-            console.log(`[Ira AI] Calling Google Gemini API [gemini-3.6-flash] (lang: ${language})...`);
+            console.log(`[Ira AI] Calling Google Gemini API [gemini-3.5-flash] (lang: ${language}, RAG sources: ${ragSources.length})...`);
 
             const contents = [];
 
@@ -699,17 +718,29 @@ app.post('/api/assistant/chat', async (req, res) => {
                 parts: [{ text: userPromptWithLang }]
             });
 
-            const candidateModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-1.5-pro'];
+            // Modern, verified active Gemini models available on this API key
+            const candidateModels = [
+                'gemini-3.5-flash',
+                'gemini-3.6-flash',
+                'gemini-3.7-flash',
+                'gemini-3.1-flash-lite',
+                'gemini-flash-lite-latest'
+            ];
             let apiData = null;
             let usedModel = '';
 
+            // Dynamically inject RAG grounded context into system instruction
+            const dynamicInstruction = ragContextText
+                ? `${IRA_SYSTEM_INSTRUCTION}\n\n=== RELEVANT GROUNDED SHADEROUTE RESEARCH & REAL-TIME SENSOR DATA ===\n${ragContextText}\n\nCRITICAL INSTRUCTION: Always ground your response in the verified ShadeRoute research, institutional citations, hospital capacities, and live meteorological figures provided above.`
+                : IRA_SYSTEM_INSTRUCTION;
+
             const geminiReqBody = {
                 systemInstruction: {
-                    parts: [{ text: IRA_SYSTEM_INSTRUCTION }]
+                    parts: [{ text: dynamicInstruction }]
                 },
                 contents,
                 generationConfig: {
-                    temperature: 0.6,
+                    temperature: 0.5,
                     maxOutputTokens: 2048,
                     topP: 0.85
                 }
@@ -729,8 +760,8 @@ app.post('/api/assistant/chat', async (req, res) => {
                     });
                     clearTimeout(timeoutId);
 
-                    if (apiResponse.status === 429) {
-                        console.warn(`[Ira AI] Model ${modelName} reached 429 quota. Trying next candidate model...`);
+                    if (apiResponse.status === 429 || apiResponse.status === 503) {
+                        console.warn(`[Ira AI] Model ${modelName} returned ${apiResponse.status}. Cascading to next candidate...`);
                         continue;
                     }
 
@@ -779,8 +810,10 @@ app.post('/api/assistant/chat', async (req, res) => {
                 reply: cleanedReply,
                 triggerTour,
                 language,
-                source: usedModel || 'google-gemini',
+                source: usedModel || 'gemini-3.5-flash',
                 isFallback: false,
+                ragActive: Boolean(ragContextText),
+                ragSources,
                 creditsRemainingToday: Math.max(0, GEMINI_DAILY_LIMIT - geminiDailyCount)
             });
 
@@ -796,22 +829,14 @@ app.post('/api/assistant/chat', async (req, res) => {
     const fallbackResult = generateIraFallbackReply(trimmedPrompt, language);
     let finalReply = cleanConfidentialFormulas(fallbackResult.reply).replace('[[TRIGGER_TOUR]]', '').trim();
 
-    // Inform the user that Gemini live server is busy/unreachable, and pre-defined verified response is provided
-    const busyNotice = {
-        en: "⚡ *Note: Google Gemini live server is currently busy or unreachable. Serving pre-defined verified ShadeRoute guide response:*",
-        bn: "⚡ *বিজ্ঞপ্তি: গুগল জেমিনি লাইভ সার্ভার বর্তমানে ব্যস্ত বা অনুপলব্ধ। শেডরুটের পূর্বনির্ধারিত নির্ভরযোগ্য তথ্য থেকে উত্তর দেওয়া হলো:*",
-        hi: "⚡ *सूचना: गूगल जेमिनी लाइव सर्वर वर्तमान में व्यस्त या अनुपलब्ध है। शेडरूट की पूर्वनिर्धारित प्रमाणित जानकारी से उत्तर दिया जा रहा है:*",
-        or: "⚡ *ସୂଚନା: ଗୁଗଲ୍ ଜେମିନି ଲାଇଭ୍ ସର୍ଭର୍ ବର୍ତ୍ତମାନ ବ୍ୟସ୍ତ ଅଛି। ଶେଡରୁଟ୍‌ର ପୂର୍ବନିର୍ଦ୍ଧାରିତ ସୂଚନାରୁ ଉତ୍ତର ପ୍ରଦାନ କରାଯାଉଛି:*"
-    };
-    const noticeText = busyNotice[language] || busyNotice['en'];
-    finalReply = `${noticeText}\n\n${finalReply}`;
-
     return res.json({
         reply: finalReply,
         triggerTour: fallbackResult.triggerTour || wantsTour,
         language,
         source: 'deterministic-fallback',
         isFallback: true,
+        ragActive: false,
+        ragSources: [],
         creditsRemainingToday: Math.max(0, GEMINI_DAILY_LIMIT - geminiDailyCount)
     });
 });
