@@ -399,7 +399,7 @@ app.post('/api/timeline/sync', async (req, res) => {
 // ============================================================
 const { assembleGroundedContext } = require('./scripts/rag_engine');
 
-const IRA_SYSTEM_INSTRUCTION = `You are Ira (इरा), the friendly, wise, and highly capable AI Climate & Campus Guide for ShadeRoute — an urban microclimate digital twin and heat resilience platform for the SOA ITER Campus in Bhubaneswar, Odisha, India (10m x 10m high-resolution spatial grid).
+const IRA_SYSTEM_INSTRUCTION = `You are Ira (इरा), the friendly, wise, and highly capable AI Climate & Campus Guide for ShadeRoute — an urban microclimate digital twin and heat resilience platform for the SOA ITER Campus in Bhubaneswar, Odisha, India. The heat stress risk layer uses 30m × 30m Landsat satellite resolution, while the intervention planning grid inside the SOA ITER Campus operates at a finer 10m × 10m resolution.
 
 YOUR IDENTITY & ROLE:
 - Your name is Ira (इरा). In Indian heritage, Ira represents Earth, Saraswati (wisdom), and cooling water.
@@ -409,10 +409,10 @@ YOUR IDENTITY & ROLE:
 PROJECT ARCHITECTURE & MACHINE LEARNING PIPELINE KNOWLEDGE:
 You have deep, accurate understanding of ShadeRoute's scientific pipeline:
 1. SATELLITE & MULTISPECTRAL DATA:
-   - Ingests high-resolution 10m x 10m gridded multispectral imagery from Landsat 8/9 and Sentinel-2 over SOA ITER Campus.
+   - Ingests multispectral imagery from Landsat 8/9 (30m × 30m native resolution) and Sentinel-2 over SOA ITER Campus. The heat stress risk layer operates at 30m × 30m satellite resolution.
    - Computes key surface indicators: Land Surface Temperature (LST), Normalized Difference Vegetation Index (NDVI), Normalized Difference Built-up Index (NDBI), Bare Soil Index (BSI), and Normalized Difference Water Index (NDWI), plus vegetation fraction.
 2. VEGETATION & MIST PRIORITY ENGINE (ml/priority_engine.py):
-   - Multi-criteria spatial optimization engine analyzing 10m walkway grid cells.
+   - Multi-criteria spatial optimization engine analyzing 10m × 10m walkway grid cells within the SOA ITER Campus for intervention planning.
    - Prioritizes pedestrian corridors between student hostels, lecture halls, auditoriums, and cafeterias where ground surface heat, lack of canopy, bare soil, and heavy foot traffic create acute thermal danger.
    - Simulates targeted microclimate intervention placing up to 400 shade trees and up to 100 high-pressure mist sprayers.
 3. HEATWAVE MULTI-HORIZON ML ENSEMBLE (ml/heat_wave_prediction_v2.py):
@@ -565,7 +565,7 @@ function generateIraFallbackReply(prompt, lang = 'en') {
         } else if (isOdia) {
             reply = `🧠 **ଶେଡରୁଟର ମେସିନ୍ ଲର୍ଣ୍ଣିଂ ପାଇପଲାଇନ୍ ଓ ମଡେଲ୍:**\n\n1. 🛰️ **୧୦ମିଟର ସାଟେଲାଇଟ୍ ତଥ୍ୟ:** ଲ୍ୟାଣ୍ଡସାଟ୍ ୮/୯ ଏବଂ ସେଣ୍ଟିନେଲ୍-୨ ରୁ ତାପମାତ୍ରା (LST) ଓ ସବୁଜିମା (NDVI) ମାପ କରାଯାଏ।\n2. 🌳 **ପ୍ରାଥମିକତା ଇଞ୍ଜିନ୍:** ସର୍ବାଧିକ ଗରମ ଥିବା ରାସ୍ତାଗୁଡ଼ିକରେ ଗଛ ଏବଂ ମିଷ୍ଟ ସ୍ପ୍ରେୟାର ସ୍ଥାପନ ପାଇଁ ସର୍ବୋତ୍ତମ ସ୍ଥାନ ବାଛେ।\n3. 🌡️ **ହିଟୱେଭ୍ ଏନସେମ୍ବଲ୍ ମଡେଲ୍:** RandomForest ଓ HistGradientBoosting ମାଧ୍ୟମରେ ଆଜି ଏବଂ ଆଗାମୀ ୩ ଦିନର ଗ୍ରୀଷ୍ମ ପ୍ରବାହର ଆଗୁଆ ସୂଚନା ଦିଏ।\n4. 🏥 **ଡାକ୍ତରଖାନା ପ୍ରସ୍ତୁତି:** NCDC ଓ AIIMS ମାନଦଣ୍ଡ ଅନୁଯାୟୀ ରୋଗୀ ସଂଖ୍ୟା ବୃଦ୍ଧିର ଆକଳନ କରେ।`;
         } else {
-            reply = `🧠 **ShadeRoute ML Pipeline & Models Overview:**\n\n1. 🛰️ **10m Multispectral Satellite Feed:** Ingests Landsat 8/9 & Sentinel-2 observations to calculate Land Surface Temperature (LST), vegetation index (NDVI), built-up index (NDBI), and soil dryness.\n2. 🌳 **Spatial Priority Engine:** Multi-criteria optimization on 10m grid walkways prioritizing pedestrian corridors where high solar irradiance, bare ground, and heavy student movement meet.\n3. 🌡️ **Heatwave Multi-Horizon ML Ensemble:** Soft-voting ensemble combining RandomForest + HistGradientBoosting models predicting same-day nowcast (H0) and 1, 2, 3-day ahead horizons (H1-H3) using NWP atmospheric feeds.\n4. 🏥 **Hospital Surge & Readiness Model:** Calibrated to NCDC NAP-HRI 2024 and AIIMS emergency medicine protocols to forecast patient surge and cooling resources for 4 area hospitals.`;
+            reply = `🧠 **ShadeRoute ML Pipeline & Models Overview:**\n\n1. 🛰️ **Multispectral Satellite Feed (30m heat stress layer):** Ingests Landsat 8/9 (30m × 30m resolution) & Sentinel-2 observations to calculate Land Surface Temperature (LST), vegetation index (NDVI), built-up index (NDBI), and soil dryness.\n2. 🌳 **Spatial Priority Engine (10m intervention grid):** Multi-criteria optimization on a finer 10m × 10m grid within the SOA ITER Campus, prioritizing pedestrian corridors where high solar irradiance, bare ground, and heavy student movement meet.\n3. 🌡️ **Heatwave Multi-Horizon ML Ensemble:** Soft-voting ensemble combining RandomForest + HistGradientBoosting models predicting same-day nowcast (H0) and 1, 2, 3-day ahead horizons (H1-H3) using NWP atmospheric feeds.\n4. 🏥 **Hospital Surge & Readiness Model:** Calibrated to NCDC NAP-HRI 2024 and AIIMS emergency medicine protocols to forecast patient surge and cooling resources for 4 area hospitals.`;
         }
         return { reply, triggerTour: false, source: 'deterministic-fallback' };
     }

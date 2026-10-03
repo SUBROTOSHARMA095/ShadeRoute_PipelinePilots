@@ -47,7 +47,7 @@
                 fr: '📊 Indicateurs de Chaleur en Direct'
             },
             text: {
-                en: 'Real-time overview of campus thermal health: 820 high-resolution 10m sectors scanned, 142 urgent hotspots, placed cooling items, and peak satellite ground temperatures.',
+                en: 'Real-time overview of campus thermal health: 820 sectors scanned across the 30m heat stress layer, 142 urgent hotspots, placed cooling items, and peak satellite ground temperatures. Intervention planning uses a finer 10m grid inside the campus.',
                 hi: 'परिसर के तापमान का त्वरित अवलोकन: 820 स्कैन किए गए ज़ोन, अत्यधिक गर्म हॉटस्पॉट, लगाए गए पेड़/स्प्रेयर और अधिकतम ज़मीनी तापमान।',
                 or: 'କ୍ୟାମ୍ପସ ତାପମାତ୍ରାର ସଂକ୍ଷିପ୍ତ ସୂଚନା: ୮୨୦ ସ୍କାନ୍ ହୋଇଥିବା ଜୋନ୍, ଅତ୍ୟଧିକ ଗରମ ସ୍ଥାନ, ଏବଂ ସର୍ବାଧିକ ଭୂମି ତାପମାତ୍ରା।',
                 bn: 'ক্যাম্পাসের সামগ্রিক তাপমাত্রার সূচক: ৮২০টি স্ক্যান করা জোন, আশু হটস্পট এবং উপগ্রহ থেকে প্রাপ্ত সর্বোচ্চ ভূমি তাপমাত্রা।',
@@ -112,7 +112,19 @@
                 es: 'Instala nebulizadores en los caminos entre residencias y aulas. Proporcionan enfriamiento evaporativo instantáneo de hasta 2°C.',
                 fr: 'Installez des brumisateurs sur les allées entre résidences et salles de cours pour un rafraîchissement évaporatif immédiat jusqu’à 2°C.'
             },
-            placement: 'sidebar-right'
+            placement: 'sidebar-right',
+            beforeStep: () => {
+                // Scroll sidebar content so the mist card is visible
+                const mistCard = document.querySelector('.scenario-card-mist');
+                if (mistCard) {
+                    const scrollParent = mistCard.closest('.mode-content');
+                    if (scrollParent) {
+                        mistCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        mistCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            }
         },
         {
             id: 'cooling-impact',
@@ -133,7 +145,14 @@
                 es: 'Observa la reducción de temperatura estimada en tiempo real a medida que agregas árboles y nebulizadores.',
                 fr: 'Visualisez la baisse de température estimée en temps réel au fur et à mesure que vous ajoutez des arbres et des brumisateurs.'
             },
-            placement: 'sidebar-right'
+            placement: 'sidebar-right',
+            beforeStep: () => {
+                // Scroll sidebar back up to show the cooling impact banner
+                const banner = document.querySelector('.cooling-impact-banner');
+                if (banner) {
+                    banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
         },
         {
             id: 'heatwave-forecast',
@@ -431,7 +450,7 @@
                 if (typeof step.afterStep === 'function') {
                     step.afterStep();
                 }
-            }, 180);
+            }, 400);
         }
 
         positionCardSafely(targetRect, placement) {

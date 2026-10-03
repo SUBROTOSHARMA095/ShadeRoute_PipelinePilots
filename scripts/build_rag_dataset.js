@@ -114,7 +114,7 @@ function buildKnowledgeChunks() {
         category: 'cooling_interventions',
         category_label: 'Campus Cooling Interventions',
         summary: 'Priority engine placing up to 400 shade trees and 100 high-pressure mist sprayers along high-heat pedestrian paths.',
-        text: `[ShadeRoute Campus Cooling Interventions: Trees & Mist Sprayers]\nScope: 10m x 10m high-resolution walkway grid connecting hostels, lecture halls, auditoriums, and cafeterias across the SOA ITER campus.\nShade Trees Intervention: Up to 400 shade trees placed at critical pedestrian corridors. Tree canopies intercept solar radiation and cool ground surface temperatures by up to ~4°C through natural leaf evapotranspiration.\nMist Sprayers Intervention: Up to 100 high-pressure evaporative mist nozzles placed along student corridors. Flash evaporation of micro-droplets absorbs ambient sensible heat, dropping perceived "feels-like" temperature by up to ~2°C.\nOptimization: Evaluates Land Surface Temperature (LST), Bare Soil Index (BSI), lack of canopy (NDVI deficit), and pedestrian walking density to pinpoint maximum-benefit locations.`
+        text: `[ShadeRoute Campus Cooling Interventions: Trees & Mist Sprayers]\nScope: 10m x 10m high-resolution intervention planning grid within the SOA ITER Campus, connecting hostels, lecture halls, auditoriums, and cafeterias. Note: This 10m resolution is specific to intervention planning inside the campus; the broader heat stress risk layer uses 30m x 30m Landsat satellite resolution.\nShade Trees Intervention: Up to 400 shade trees placed at critical pedestrian corridors. Tree canopies intercept solar radiation and cool ground surface temperatures by up to ~4°C through natural leaf evapotranspiration.\nMist Sprayers Intervention: Up to 100 high-pressure evaporative mist nozzles placed along student corridors. Flash evaporation of micro-droplets absorbs ambient sensible heat, dropping perceived "feels-like" temperature by up to ~2°C.\nOptimization: Evaluates Land Surface Temperature (LST), Bare Soil Index (BSI), lack of canopy (NDVI deficit), and pedestrian walking density to pinpoint maximum-benefit locations.`
     });
 
     chunks.push({
@@ -128,11 +128,11 @@ function buildKnowledgeChunks() {
 
     chunks.push({
         id: 'satellite_remote_sensing_specs',
-        title: 'Satellite Remote Sensing & Multispectral Indices (10m Spatial Grid)',
+        title: 'Satellite Remote Sensing & Multispectral Indices',
         category: 'remote_sensing',
         category_label: 'Satellite Remote Sensing',
-        summary: 'Ingests Landsat 8/9, Sentinel-2, and Sentinel-5P via Google Earth Engine for LST, NDVI, NDBI, NDWI, and BSI.',
-        text: `[Satellite Remote Sensing Specifications]\nSpatial Grid: 10m x 10m grid covering SOA ITER campus and 3 km² neighborhood.\nSensors: Landsat 8/9 TIRS-2, Sentinel-2 MSI, and Sentinel-5P TROPOMI processed through Google Earth Engine (GEE).\nComputed Indices: Land Surface Temperature (LST), Normalized Difference Vegetation Index (NDVI, tree canopy), Normalized Difference Built-up Index (NDBI, concrete), Normalized Difference Water Index (NDWI, surface moisture), Bare Soil Index (BSI), and continuous vegetation fraction.`
+        summary: 'Ingests Landsat 8/9 (30m resolution), Sentinel-2, and Sentinel-5P via Google Earth Engine for LST, NDVI, NDBI, NDWI, and BSI. The heat stress risk layer uses 30m x 30m resolution; intervention planning inside the SOA ITER Campus uses a finer 10m x 10m grid.',
+        text: `[Satellite Remote Sensing Specifications]\nHeat Stress Risk Layer: 30m x 30m Landsat satellite resolution covering the broader area and 3 km² neighborhood.\nIntervention Planning Grid: 10m x 10m resolution used specifically within the SOA ITER Campus for tree and mist sprayer placement optimization.\nSensors: Landsat 8/9 TIRS-2 (30m native resolution), Sentinel-2 MSI, and Sentinel-5P TROPOMI processed through Google Earth Engine (GEE).\nComputed Indices: Land Surface Temperature (LST), Normalized Difference Vegetation Index (NDVI, tree canopy), Normalized Difference Built-up Index (NDBI, concrete), Normalized Difference Water Index (NDWI, surface moisture), Bare Soil Index (BSI), and continuous vegetation fraction.`
     });
 
     chunks.push({
