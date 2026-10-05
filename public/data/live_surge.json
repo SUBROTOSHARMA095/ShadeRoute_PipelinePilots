@@ -505,8 +505,8 @@
       "surge_multiplier": 1.05,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 5.0,
-      "apparent_temp_max": 37.8,
-      "rh_mean_pct": 67.4,
+      "apparent_temp_max": 37.7,
+      "rh_mean_pct": 67.8,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -516,7 +516,7 @@
         "duration_multiplier": 1.0,
         "danger_window_multiplier": 1.0
       },
-      "clinical_advisory": "HUMIDITY-HEAT SURGE: High apparent temperature (38°C feels-like) and humidity (67%) drive elevated E86 dehydration, J44 respiratory, and T67 heat exhaustion presentations despite low heatwave probability. Ensure ORS corners are staffed; monitor outdoor students and workers for early heat exhaustion signs.",
+      "clinical_advisory": "HUMIDITY-HEAT SURGE: High apparent temperature (38°C feels-like) and humidity (68%) drive elevated E86 dehydration, J44 respiratory, and T67 heat exhaustion presentations despite low heatwave probability. Ensure ORS corners are staffed; monitor outdoor students and workers for early heat exhaustion signs.",
       "facility_projections": {
         "soa_student_health_centre": {
           "facility_name": "SOA ITER Student Health Centre",
@@ -821,26 +821,26 @@
       "alert_color": "#10b981",
       "danger_window": null,
       "unsafe_duration": "0 hours",
-      "surge_percent": 4.8,
+      "surge_percent": 4.9,
       "planning_range_percent": [
-        3.6,
-        6.0
+        3.7,
+        6.1
       ],
-      "surge_multiplier": 1.048,
+      "surge_multiplier": 1.049,
       "heatwave_surge_percent": 0.0,
-      "humidity_heat_surge_percent": 4.8,
-      "apparent_temp_max": 39.3,
-      "rh_mean_pct": 74.3,
+      "humidity_heat_surge_percent": 4.9,
+      "apparent_temp_max": 38.7,
+      "rh_mean_pct": 72.6,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
         "exposure_multiplier": 1.0,
-        "humidity_heat_fraction": 0.048,
+        "humidity_heat_fraction": 0.049,
         "unsafe_duration_hours": 0.0,
         "duration_multiplier": 1.0,
         "danger_window_multiplier": 1.0
       },
-      "clinical_advisory": "MODERATE HUMIDITY SURGE: Apparent temperature (39°C feels-like) with 74% humidity may cause dehydration and heat exhaustion (ICD-10 E86, T67). Alert triage staff; establish active Oral Rehydration Therapy (ORT) corners; monitor outdoor laborers and vulnerable student movement.",
+      "clinical_advisory": "MODERATE HUMIDITY SURGE: Apparent temperature (39°C feels-like) with 73% humidity may cause dehydration and heat exhaustion (ICD-10 E86, T67). Alert triage staff; establish active Oral Rehydration Therapy (ORT) corners; monitor outdoor laborers and vulnerable student movement.",
       "facility_projections": {
         "soa_student_health_centre": {
           "facility_name": "SOA ITER Student Health Centre",
@@ -848,7 +848,7 @@
           "baseline_emergency": 8,
           "projected_emergency": 8,
           "excess_emergency_patients": 0,
-          "emergency_surge_percent": 5.0,
+          "emergency_surge_percent": 5.1,
           "baseline_opd": 80,
           "projected_opd": 81,
           "excess_opd_patients": 1,
@@ -921,7 +921,7 @@
           "baseline_emergency": 18,
           "projected_emergency": 19,
           "excess_emergency_patients": 1,
-          "emergency_surge_percent": 5.0,
+          "emergency_surge_percent": 5.1,
           "baseline_opd": 160,
           "projected_opd": 162,
           "excess_opd_patients": 2,
@@ -994,7 +994,7 @@
           "baseline_emergency": 14,
           "projected_emergency": 15,
           "excess_emergency_patients": 1,
-          "emergency_surge_percent": 4.3,
+          "emergency_surge_percent": 4.4,
           "baseline_opd": 180,
           "projected_opd": 182,
           "excess_opd_patients": 2,
@@ -1067,7 +1067,7 @@
           "baseline_emergency": 210,
           "projected_emergency": 221,
           "excess_emergency_patients": 11,
-          "emergency_surge_percent": 5.3,
+          "emergency_surge_percent": 5.4,
           "baseline_opd": 3200,
           "projected_opd": 3228,
           "excess_opd_patients": 28,
@@ -1138,7 +1138,7 @@
     },
     "2026-10-07": {
       "date": "2026-10-07",
-      "heatwave_probability": 0.0,
+      "heatwave_probability": 0.001,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -1154,7 +1154,7 @@
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
       "apparent_temp_max": 39.7,
-      "rh_mean_pct": 83.5,
+      "rh_mean_pct": 82.2,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1462,7 +1462,7 @@
     },
     "2026-10-08": {
       "date": "2026-10-08",
-      "heatwave_probability": 0.004,
+      "heatwave_probability": 0.003,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -1477,8 +1477,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 38.6,
-      "rh_mean_pct": 84.0,
+      "apparent_temp_max": 38.7,
+      "rh_mean_pct": 87.0,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
