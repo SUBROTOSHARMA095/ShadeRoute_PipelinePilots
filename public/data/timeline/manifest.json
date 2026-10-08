@@ -1306,25 +1306,25 @@
     {
       "date": "2026-10-08",
       "file": "timeline/heat_risk_zones_2026-10-08.geojson",
-      "hhsi_max_overall": 43.16,
+      "hhsi_max_overall": 42.25,
       "danger_or_worse_sectors": 0
     },
     {
       "date": "2026-10-09",
       "file": "timeline/heat_risk_zones_2026-10-09.geojson",
-      "hhsi_max_overall": 43.52,
+      "hhsi_max_overall": 42.92,
       "danger_or_worse_sectors": 0
     },
     {
       "date": "2026-10-10",
       "file": "timeline/heat_risk_zones_2026-10-10.geojson",
-      "hhsi_max_overall": 42.08,
+      "hhsi_max_overall": 41.91,
       "danger_or_worse_sectors": 0
     },
     {
       "date": "2026-10-11",
       "file": "timeline/heat_risk_zones_2026-10-11.geojson",
-      "hhsi_max_overall": 44.57,
+      "hhsi_max_overall": 44.23,
       "danger_or_worse_sectors": 0
     }
   ]
