@@ -497,26 +497,26 @@
       "alert_color": "#10b981",
       "danger_window": null,
       "unsafe_duration": "0 hours",
-      "surge_percent": 4.9,
+      "surge_percent": 4.2,
       "planning_range_percent": [
-        3.7,
-        6.1
+        3.1,
+        5.3
       ],
-      "surge_multiplier": 1.049,
+      "surge_multiplier": 1.042,
       "heatwave_surge_percent": 0.0,
-      "humidity_heat_surge_percent": 4.9,
-      "apparent_temp_max": 37.5,
-      "rh_mean_pct": 75.8,
+      "humidity_heat_surge_percent": 4.2,
+      "apparent_temp_max": 37.3,
+      "rh_mean_pct": 78.5,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
         "exposure_multiplier": 1.0,
-        "humidity_heat_fraction": 0.049,
+        "humidity_heat_fraction": 0.042,
         "unsafe_duration_hours": 0.0,
         "duration_multiplier": 1.0,
         "danger_window_multiplier": 1.0
       },
-      "clinical_advisory": "MODERATE HUMIDITY SURGE: Apparent temperature (38°C feels-like) with 76% humidity may cause dehydration and heat exhaustion (ICD-10 E86, T67). Alert triage staff; establish active Oral Rehydration Therapy (ORT) corners; monitor outdoor laborers and vulnerable student movement.",
+      "clinical_advisory": "MODERATE HUMIDITY SURGE: Apparent temperature (37°C feels-like) with 78% humidity may cause dehydration and heat exhaustion (ICD-10 E86, T67). Alert triage staff; establish active Oral Rehydration Therapy (ORT) corners; monitor outdoor laborers and vulnerable student movement.",
       "facility_projections": {
         "soa_student_health_centre": {
           "facility_name": "SOA ITER Student Health Centre",
@@ -524,11 +524,11 @@
           "baseline_emergency": 8,
           "projected_emergency": 8,
           "excess_emergency_patients": 0,
-          "emergency_surge_percent": 5.1,
+          "emergency_surge_percent": 4.4,
           "baseline_opd": 80,
           "projected_opd": 81,
           "excess_opd_patients": 1,
-          "opd_surge_percent": 1.0,
+          "opd_surge_percent": 0.8,
           "capacity_beds": 8,
           "capacity_pressure_ratio": 0.0,
           "capacity_action_status": "NORMAL_OPERATIONS",
@@ -597,11 +597,11 @@
           "baseline_emergency": 18,
           "projected_emergency": 19,
           "excess_emergency_patients": 1,
-          "emergency_surge_percent": 5.1,
+          "emergency_surge_percent": 4.4,
           "baseline_opd": 160,
-          "projected_opd": 162,
-          "excess_opd_patients": 2,
-          "opd_surge_percent": 1.0,
+          "projected_opd": 161,
+          "excess_opd_patients": 1,
+          "opd_surge_percent": 0.9,
           "capacity_beds": 15,
           "capacity_pressure_ratio": 0.067,
           "capacity_action_status": "NORMAL_OPERATIONS",
@@ -670,11 +670,11 @@
           "baseline_emergency": 14,
           "projected_emergency": 15,
           "excess_emergency_patients": 1,
-          "emergency_surge_percent": 4.4,
+          "emergency_surge_percent": 3.8,
           "baseline_opd": 180,
           "projected_opd": 182,
           "excess_opd_patients": 2,
-          "opd_surge_percent": 1.1,
+          "opd_surge_percent": 0.9,
           "capacity_beds": 30,
           "capacity_pressure_ratio": 0.033,
           "capacity_action_status": "NORMAL_OPERATIONS",
@@ -741,13 +741,13 @@
           "facility_name": "IMS & SUM Hospital",
           "tier": "Level 3: Quaternary Medical College Hospital",
           "baseline_emergency": 210,
-          "projected_emergency": 221,
-          "excess_emergency_patients": 11,
-          "emergency_surge_percent": 5.4,
+          "projected_emergency": 220,
+          "excess_emergency_patients": 10,
+          "emergency_surge_percent": 4.6,
           "baseline_opd": 3200,
-          "projected_opd": 3228,
-          "excess_opd_patients": 28,
-          "opd_surge_percent": 0.9,
+          "projected_opd": 3224,
+          "excess_opd_patients": 24,
+          "opd_surge_percent": 0.8,
           "capacity_beds": 1750,
           "capacity_pressure_ratio": 0.006,
           "capacity_action_status": "NORMAL_OPERATIONS",
@@ -756,7 +756,7 @@
             "direct_heat_illness": {
               "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
               "icd_ref": "ICD-10 T67",
-              "projected_excess_cases": 3
+              "projected_excess_cases": 2
             },
             "cardiovascular_cerebrovascular": {
               "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
@@ -766,7 +766,7 @@
             "renal_metabolic": {
               "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
               "icd_ref": "ICD-10 N17, E86",
-              "projected_excess_cases": 3
+              "projected_excess_cases": 2
             },
             "respiratory_other": {
               "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
@@ -776,8 +776,8 @@
           },
           "resource_readiness_requirements": {
             "dedicated_hsu_beds": 2,
-            "emergency_iv_fluid_litres": 38,
-            "rapid_cooling_stations": 6
+            "emergency_iv_fluid_litres": 35,
+            "rapid_cooling_stations": 5
           },
           "diurnal_casualty_arrival_waves": {
             "morning_rise": {
@@ -789,7 +789,7 @@
             },
             "peak_danger_window": {
               "time_window": "12:00–16:00",
-              "expected_excess_cases": 5,
+              "expected_excess_cases": 4,
               "share_percent": 45.0,
               "clinical_mechanism": "Peak solar radiation & surface heat; acute sunstroke, hyperthermia, collapse.",
               "shift_recommendation": "CRITICAL SHIFT: Double triage nurses; pre-cool IV fluids; staff all HSU beds."
@@ -821,26 +821,26 @@
       "alert_color": "#10b981",
       "danger_window": null,
       "unsafe_duration": "0 hours",
-      "surge_percent": 4.8,
+      "surge_percent": 4.2,
       "planning_range_percent": [
-        3.6,
-        5.9
+        3.2,
+        5.3
       ],
-      "surge_multiplier": 1.048,
+      "surge_multiplier": 1.042,
       "heatwave_surge_percent": 0.0,
-      "humidity_heat_surge_percent": 4.8,
-      "apparent_temp_max": 36.5,
-      "rh_mean_pct": 75.7,
+      "humidity_heat_surge_percent": 4.2,
+      "apparent_temp_max": 36.2,
+      "rh_mean_pct": 76.6,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
         "exposure_multiplier": 1.0,
-        "humidity_heat_fraction": 0.0476,
+        "humidity_heat_fraction": 0.0421,
         "unsafe_duration_hours": 0.0,
         "duration_multiplier": 1.0,
         "danger_window_multiplier": 1.0
       },
-      "clinical_advisory": "MODERATE HUMIDITY SURGE: Apparent temperature (36°C feels-like) with 76% humidity may cause dehydration and heat exhaustion (ICD-10 E86, T67). Alert triage staff; establish active Oral Rehydration Therapy (ORT) corners; monitor outdoor laborers and vulnerable student movement.",
+      "clinical_advisory": "MODERATE HUMIDITY SURGE: Apparent temperature (36°C feels-like) with 77% humidity may cause dehydration and heat exhaustion (ICD-10 E86, T67). Alert triage staff; establish active Oral Rehydration Therapy (ORT) corners; monitor outdoor laborers and vulnerable student movement.",
       "facility_projections": {
         "soa_student_health_centre": {
           "facility_name": "SOA ITER Student Health Centre",
@@ -848,11 +848,11 @@
           "baseline_emergency": 8,
           "projected_emergency": 8,
           "excess_emergency_patients": 0,
-          "emergency_surge_percent": 5.0,
+          "emergency_surge_percent": 4.4,
           "baseline_opd": 80,
           "projected_opd": 81,
           "excess_opd_patients": 1,
-          "opd_surge_percent": 0.9,
+          "opd_surge_percent": 0.8,
           "capacity_beds": 8,
           "capacity_pressure_ratio": 0.0,
           "capacity_action_status": "NORMAL_OPERATIONS",
@@ -921,11 +921,11 @@
           "baseline_emergency": 18,
           "projected_emergency": 19,
           "excess_emergency_patients": 1,
-          "emergency_surge_percent": 5.0,
+          "emergency_surge_percent": 4.4,
           "baseline_opd": 160,
-          "projected_opd": 162,
-          "excess_opd_patients": 2,
-          "opd_surge_percent": 1.0,
+          "projected_opd": 161,
+          "excess_opd_patients": 1,
+          "opd_surge_percent": 0.9,
           "capacity_beds": 15,
           "capacity_pressure_ratio": 0.067,
           "capacity_action_status": "NORMAL_OPERATIONS",
@@ -994,11 +994,11 @@
           "baseline_emergency": 14,
           "projected_emergency": 15,
           "excess_emergency_patients": 1,
-          "emergency_surge_percent": 4.3,
+          "emergency_surge_percent": 3.8,
           "baseline_opd": 180,
           "projected_opd": 182,
           "excess_opd_patients": 2,
-          "opd_surge_percent": 1.0,
+          "opd_surge_percent": 0.9,
           "capacity_beds": 30,
           "capacity_pressure_ratio": 0.033,
           "capacity_action_status": "NORMAL_OPERATIONS",
@@ -1065,13 +1065,13 @@
           "facility_name": "IMS & SUM Hospital",
           "tier": "Level 3: Quaternary Medical College Hospital",
           "baseline_emergency": 210,
-          "projected_emergency": 221,
-          "excess_emergency_patients": 11,
-          "emergency_surge_percent": 5.2,
+          "projected_emergency": 220,
+          "excess_emergency_patients": 10,
+          "emergency_surge_percent": 4.6,
           "baseline_opd": 3200,
-          "projected_opd": 3227,
-          "excess_opd_patients": 27,
-          "opd_surge_percent": 0.9,
+          "projected_opd": 3224,
+          "excess_opd_patients": 24,
+          "opd_surge_percent": 0.8,
           "capacity_beds": 1750,
           "capacity_pressure_ratio": 0.006,
           "capacity_action_status": "NORMAL_OPERATIONS",
@@ -1080,7 +1080,7 @@
             "direct_heat_illness": {
               "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
               "icd_ref": "ICD-10 T67",
-              "projected_excess_cases": 3
+              "projected_excess_cases": 2
             },
             "cardiovascular_cerebrovascular": {
               "label": "Cardiovascular & Stroke Decompensation (Angina, Arrhythmia)",
@@ -1090,7 +1090,7 @@
             "renal_metabolic": {
               "label": "Acute Kidney Injury & Dehydration (Azotemia, Electrolyte Loss)",
               "icd_ref": "ICD-10 N17, E86",
-              "projected_excess_cases": 3
+              "projected_excess_cases": 2
             },
             "respiratory_other": {
               "label": "Respiratory & Acute Distress (COPD Exacerbation, Asthma)",
@@ -1100,8 +1100,8 @@
           },
           "resource_readiness_requirements": {
             "dedicated_hsu_beds": 2,
-            "emergency_iv_fluid_litres": 38,
-            "rapid_cooling_stations": 6
+            "emergency_iv_fluid_litres": 35,
+            "rapid_cooling_stations": 5
           },
           "diurnal_casualty_arrival_waves": {
             "morning_rise": {
@@ -1113,7 +1113,7 @@
             },
             "peak_danger_window": {
               "time_window": "12:00–16:00",
-              "expected_excess_cases": 5,
+              "expected_excess_cases": 4,
               "share_percent": 45.0,
               "clinical_mechanism": "Peak solar radiation & surface heat; acute sunstroke, hyperthermia, collapse.",
               "shift_recommendation": "CRITICAL SHIFT: Double triage nurses; pre-cool IV fluids; staff all HSU beds."
@@ -1153,8 +1153,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 36.0,
-      "rh_mean_pct": 76.5,
+      "apparent_temp_max": 35.7,
+      "rh_mean_pct": 80.3,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1477,8 +1477,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 35.2,
-      "rh_mean_pct": 90.5,
+      "apparent_temp_max": 35.5,
+      "rh_mean_pct": 89.1,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
