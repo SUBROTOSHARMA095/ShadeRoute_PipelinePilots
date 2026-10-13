@@ -80,10 +80,10 @@
     "prediction": "No heatwave",
     "risk_level": "Low",
     "confidence": "High (Hourly Nowcast + Model)",
-    "rain_probability": 61,
-    "rain_probability_peak_pct": 61.0,
-    "rain_probability_peak_hour": "16:00",
-    "rain_probability_note": "Peak hourly precipitation probability from the NWP forecast: 61% at 16:00 IST. It is not a daily precipitation probability.",
+    "rain_probability": 99,
+    "rain_probability_peak_pct": 99.0,
+    "rain_probability_peak_hour": "15:00",
+    "rain_probability_note": "Peak hourly precipitation probability from the NWP forecast: 99% at 15:00 IST. It is not a daily precipitation probability.",
     "precipitation_mm": 4.7,
     "pressure_hpa": 1011.2,
     "pressure_change_24h": -0.5,
@@ -91,13 +91,13 @@
     "tmin_c": 24.9,
     "tmean_c": 27.4,
     "rh_mean_pct": 82.8,
-    "cloud_cover_pct": 14.2,
+    "cloud_cover_pct": 22.0,
     "wind_speed_ms": 7.3,
     "apparent_temp_max": 35.2,
     "monsoon_suppression": true,
     "seasonal_context": "Post-Monsoon (Retreating Monsoon)",
     "humidity_discomfort": "Muggy / Uncomfortable (feels like 35\u00b0C)",
-    "weather_summary": "Today's weather: High of 31.4\u00b0C, feels like 35\u00b0C with 83% humidity. Cloud cover and active monsoon moisture suppress heatwave risk (0.0% probability). Peak precipitation probability is 61% around 16:00.",
+    "weather_summary": "Today's weather: High of 31.4\u00b0C, feels like 35\u00b0C with 83% humidity. Cloud cover and active monsoon moisture suppress heatwave risk (0.0% probability). Peak precipitation probability is 99% around 15:00.",
     "warning": {
       "level": "Normal",
       "class": "safe",
@@ -158,7 +158,7 @@
     "tmin_c": 23.9,
     "tmean_c": 25.9,
     "rh_mean_pct": 90.2,
-    "cloud_cover_pct": 59.2,
+    "cloud_cover_pct": 34.8,
     "wind_speed_ms": 7.5,
     "apparent_temp_max": 35.8,
     "monsoon_suppression": true,
@@ -172,8 +172,7 @@
       "unsafe_duration": "0 hours",
       "reasons": [
         "\ud83c\udf27\ufe0f Monsoon moisture (90% RH) + rain suppressing heatwave risk",
-        "\ud83c\udf27\ufe0f Active rainfall (8.8 mm) cooling surface temperatures",
-        "\u2601\ufe0f Cloud cover (59%) attenuating solar radiation"
+        "\ud83c\udf27\ufe0f Active rainfall (8.8 mm) cooling surface temperatures"
       ]
     },
     "advisory": null,
@@ -214,10 +213,10 @@
     "prediction": "No heatwave",
     "risk_level": "Low",
     "confidence": "Medium",
-    "rain_probability": 99,
-    "rain_probability_peak_pct": 99.0,
-    "rain_probability_peak_hour": "16:00",
-    "rain_probability_note": "Peak hourly precipitation probability from the NWP forecast: 99% at 16:00 IST. It is not a daily precipitation probability.",
+    "rain_probability": 96,
+    "rain_probability_peak_pct": 96.0,
+    "rain_probability_peak_hour": "15:00",
+    "rain_probability_note": "Peak hourly precipitation probability from the NWP forecast: 96% at 15:00 IST. It is not a daily precipitation probability.",
     "precipitation_mm": 11.6,
     "pressure_hpa": 1009.1,
     "pressure_change_24h": -2.2,
@@ -225,7 +224,7 @@
     "tmin_c": 23.2,
     "tmean_c": 25.3,
     "rh_mean_pct": 92.7,
-    "cloud_cover_pct": 68.1,
+    "cloud_cover_pct": 72.0,
     "wind_speed_ms": 5.9,
     "apparent_temp_max": 33.6,
     "monsoon_suppression": true,
@@ -240,7 +239,7 @@
       "reasons": [
         "\ud83c\udf27\ufe0f Monsoon moisture (93% RH) + rain suppressing heatwave risk",
         "\ud83c\udf27\ufe0f Active rainfall (11.6 mm) cooling surface temperatures",
-        "\u2601\ufe0f Cloud cover (68%) attenuating solar radiation"
+        "\u2601\ufe0f Cloud cover (72%) attenuating solar radiation"
       ]
     },
     "advisory": null,
@@ -281,10 +280,10 @@
     "prediction": "No heatwave",
     "risk_level": "Low",
     "confidence": "Medium",
-    "rain_probability": 86,
-    "rain_probability_peak_pct": 86.0,
-    "rain_probability_peak_hour": "15:00",
-    "rain_probability_note": "Peak hourly precipitation probability from the NWP forecast: 86% at 15:00 IST. It is not a daily precipitation probability.",
+    "rain_probability": 87,
+    "rain_probability_peak_pct": 87.0,
+    "rain_probability_peak_hour": "16:00",
+    "rain_probability_note": "Peak hourly precipitation probability from the NWP forecast: 87% at 16:00 IST. It is not a daily precipitation probability.",
     "precipitation_mm": 1.1,
     "pressure_hpa": 1008.3,
     "pressure_change_24h": -1.8,
@@ -292,13 +291,13 @@
     "tmin_c": 24.1,
     "tmean_c": 26.1,
     "rh_mean_pct": 90.2,
-    "cloud_cover_pct": 62.1,
+    "cloud_cover_pct": 68.2,
     "wind_speed_ms": 3.9,
     "apparent_temp_max": 35.9,
     "monsoon_suppression": true,
     "seasonal_context": "Post-Monsoon (Retreating Monsoon)",
     "humidity_discomfort": "Muggy / Uncomfortable (feels like 36\u00b0C)",
-    "weather_summary": "High monsoon humidity (90%) with peak hourly precipitation probability of 86% around 15:00. Cloud cover and rainfall suppress daytime heating.",
+    "weather_summary": "High monsoon humidity (90%) with peak hourly precipitation probability of 87% around 16:00. Cloud cover and rainfall suppress daytime heating.",
     "warning": {
       "level": "Normal",
       "class": "safe",
@@ -307,7 +306,7 @@
       "reasons": [
         "\ud83c\udf27\ufe0f Monsoon moisture (90% RH) + rain suppressing heatwave risk",
         "\ud83c\udf27\ufe0f Active rainfall (1.1 mm) cooling surface temperatures",
-        "\u2601\ufe0f Cloud cover (62%) attenuating solar radiation"
+        "\u2601\ufe0f Cloud cover (68%) attenuating solar radiation"
       ]
     },
     "advisory": null,
