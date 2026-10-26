@@ -505,8 +505,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 32.3,
-      "rh_mean_pct": 68.1,
+      "apparent_temp_max": 31.7,
+      "rh_mean_pct": 67.5,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -532,7 +532,7 @@
           "capacity_beds": 8,
           "capacity_pressure_ratio": 0.0,
           "capacity_action_status": "NORMAL_OPERATIONS",
-          "capacity_action_command": "🟢 ROUTINE READINESS: Maintain standard summer ORT corner and vital monitoring.",
+          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
           "syndromic_breakdown": {
             "direct_heat_illness": {
               "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
@@ -605,7 +605,7 @@
           "capacity_beds": 15,
           "capacity_pressure_ratio": 0.0,
           "capacity_action_status": "NORMAL_OPERATIONS",
-          "capacity_action_command": "🟢 ROUTINE READINESS: Maintain standard summer ORT corner and vital monitoring.",
+          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
           "syndromic_breakdown": {
             "direct_heat_illness": {
               "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
@@ -678,7 +678,7 @@
           "capacity_beds": 30,
           "capacity_pressure_ratio": 0.0,
           "capacity_action_status": "NORMAL_OPERATIONS",
-          "capacity_action_command": "🟢 ROUTINE READINESS: Maintain standard summer ORT corner and vital monitoring.",
+          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
           "syndromic_breakdown": {
             "direct_heat_illness": {
               "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
@@ -751,7 +751,7 @@
           "capacity_beds": 1750,
           "capacity_pressure_ratio": 0.0,
           "capacity_action_status": "NORMAL_OPERATIONS",
-          "capacity_action_command": "🟢 ROUTINE READINESS: Maintain standard summer ORT corner and vital monitoring.",
+          "capacity_action_command": "🟢 ROUTINE READINESS: Monsoon rainfall and cloud cover suppress acute heat presentations. Maintain routine operations.",
           "syndromic_breakdown": {
             "direct_heat_illness": {
               "label": "Direct Heat Illness (Sunstroke, Heat Exhaustion, Syncope)",
@@ -814,7 +814,7 @@
     },
     "2026-10-27": {
       "date": "2026-10-27",
-      "heatwave_probability": 0.005,
+      "heatwave_probability": 0.006,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -829,8 +829,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 32.0,
-      "rh_mean_pct": 93.2,
+      "apparent_temp_max": 32.6,
+      "rh_mean_pct": 93.7,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1153,8 +1153,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 29.8,
-      "rh_mean_pct": 95.6,
+      "apparent_temp_max": 28.1,
+      "rh_mean_pct": 96.4,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1477,8 +1477,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 32.7,
-      "rh_mean_pct": 89.2,
+      "apparent_temp_max": 32.3,
+      "rh_mean_pct": 89.5,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
