@@ -490,7 +490,7 @@
     },
     "2026-10-29": {
       "date": "2026-10-29",
-      "heatwave_probability": 0.001,
+      "heatwave_probability": 0.007,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -505,8 +505,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 30.6,
-      "rh_mean_pct": 93.3,
+      "apparent_temp_max": 31.9,
+      "rh_mean_pct": 93.7,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -829,8 +829,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 36.3,
-      "rh_mean_pct": 89.2,
+      "apparent_temp_max": 34.2,
+      "rh_mean_pct": 90.8,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1138,7 +1138,7 @@
     },
     "2026-10-31": {
       "date": "2026-10-31",
-      "heatwave_probability": 0.003,
+      "heatwave_probability": 0.001,
       "is_heatwave": false,
       "consecutive_day_index": 0,
       "alert_level": "Routine Operations",
@@ -1153,8 +1153,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 37.1,
-      "rh_mean_pct": 89.4,
+      "apparent_temp_max": 37.5,
+      "rh_mean_pct": 88.7,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1477,8 +1477,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 36.8,
-      "rh_mean_pct": 88.3,
+      "apparent_temp_max": 36.5,
+      "rh_mean_pct": 89.8,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
