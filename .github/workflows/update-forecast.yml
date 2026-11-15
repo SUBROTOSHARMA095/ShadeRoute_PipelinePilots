@@ -36,6 +36,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests pandas numpy scikit-learn==1.8.0
 
+      - name: Stagger API calls to avoid Open-Meteo rate limit
+        run: |
+          if [ "${{ matrix.branch }}" = "main" ]; then
+            echo "Waiting 45s to stagger Open-Meteo API calls between matrix jobs..."
+            sleep 45
+          fi
+
       - name: Run Live NWP Forecast Pipeline
         run: python ml/live_nwp_forecast.py
 

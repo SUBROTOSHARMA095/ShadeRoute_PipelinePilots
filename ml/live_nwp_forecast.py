@@ -947,13 +947,22 @@ if __name__ == "__main__":
         if res is None:
             print("[ERROR] NWP forecast pipeline returned no results!")
             sys.exit(1)
-    except requests.exceptions.ConnectionError as e:
-        # Open-Meteo API is temporarily unreachable (transient network issue in CI).
-        # Existing live_*.json files from the previous successful run are already
-        # committed in the repo, so the site continues to serve stale-but-valid data.
-        # Exit 0 so the workflow step does not mark the run as failed.
+    except requests.exceptions.RequestException as e:
+        # Covers all transient Open-Meteo API failures:
+        #   - ConnectionError  : DNS / network unreachable
+        #   - HTTPError 429    : rate-limited (matrix jobs hit the free tier simultaneously)
+        #   - Timeout          : slow response
+        # In all cases the previously committed live_*.json files remain valid and the
+        # site continues to serve stale-but-accurate data until the next successful run.
+        # Exit 0 so CI does not mark the run as failed for an external API issue.
+        is_429 = (
+            isinstance(e, requests.exceptions.HTTPError)
+            and e.response is not None
+            and e.response.status_code == 429
+        )
+        label = "rate-limited (HTTP 429)" if is_429 else "unreachable"
         print(
-            f"[WARN] Open-Meteo API unreachable — network error: {e}\n"
+            f"[WARN] Open-Meteo API {label} — {type(e).__name__}: {e}\n"
             "[WARN] Skipping forecast refresh. Previously committed live_*.json "
             "files will continue to serve until the next successful run."
         )
