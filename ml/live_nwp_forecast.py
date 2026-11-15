@@ -947,6 +947,17 @@ if __name__ == "__main__":
         if res is None:
             print("[ERROR] NWP forecast pipeline returned no results!")
             sys.exit(1)
+    except requests.exceptions.ConnectionError as e:
+        # Open-Meteo API is temporarily unreachable (transient network issue in CI).
+        # Existing live_*.json files from the previous successful run are already
+        # committed in the repo, so the site continues to serve stale-but-valid data.
+        # Exit 0 so the workflow step does not mark the run as failed.
+        print(
+            f"[WARN] Open-Meteo API unreachable — network error: {e}\n"
+            "[WARN] Skipping forecast refresh. Previously committed live_*.json "
+            "files will continue to serve until the next successful run."
+        )
+        sys.exit(0)
     except Exception as e:
         print(f"[FATAL] Live forecast execution halted: {e}")
         sys.exit(1)
