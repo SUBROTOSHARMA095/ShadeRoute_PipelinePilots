@@ -1,5 +1,5 @@
 {
-  "today": "2026-11-20",
+  "today": "2026-11-21",
   "dates": [
     {
       "date": "2026-03-01",
@@ -1348,25 +1348,31 @@
     {
       "date": "2026-11-20",
       "file": "timeline/heat_risk_zones_2026-11-20.geojson",
-      "hhsi_max_overall": 32.28,
+      "hhsi_max_overall": 31.53,
       "danger_or_worse_sectors": 0
     },
     {
       "date": "2026-11-21",
       "file": "timeline/heat_risk_zones_2026-11-21.geojson",
-      "hhsi_max_overall": 37.64,
+      "hhsi_max_overall": 37.39,
       "danger_or_worse_sectors": 0
     },
     {
       "date": "2026-11-22",
       "file": "timeline/heat_risk_zones_2026-11-22.geojson",
-      "hhsi_max_overall": 40.45,
+      "hhsi_max_overall": 39.52,
       "danger_or_worse_sectors": 0
     },
     {
       "date": "2026-11-23",
       "file": "timeline/heat_risk_zones_2026-11-23.geojson",
-      "hhsi_max_overall": 38.47,
+      "hhsi_max_overall": 39.41,
+      "danger_or_worse_sectors": 0
+    },
+    {
+      "date": "2026-11-24",
+      "file": "timeline/heat_risk_zones_2026-11-24.geojson",
+      "hhsi_max_overall": 35.87,
       "danger_or_worse_sectors": 0
     }
   ]
