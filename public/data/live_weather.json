@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-25T08:15:08.889267+05:30",
+  "generated_at": "2026-11-25T14:26:48.790485+05:30",
   "source": "Open-Meteo forecast API (model selection supplied by Open-Meteo)",
   "location": {
     "latitude": 20.25,
@@ -7,17 +7,17 @@
     "name": "Bhubaneswar / SOA ITER Campus"
   },
   "current": {
-    "time": "2026-11-25 08:00",
-    "temperature_c": 25.2,
-    "relative_humidity_pct": 79,
-    "heat_index_c": 25.2,
-    "wind_speed_ms": 8.5,
-    "wind_gusts_ms": 20.9,
-    "precipitation_probability": 0,
+    "time": "2026-11-25 14:00",
+    "temperature_c": 28.0,
+    "relative_humidity_pct": 59,
+    "heat_index_c": 28.0,
+    "wind_speed_ms": 8.8,
+    "wind_gusts_ms": 22.0,
+    "precipitation_probability": 12,
     "precipitation_mm": 0.0,
-    "cloud_cover_pct": 4,
-    "surface_pressure_hpa": 1016.5,
-    "pressure_tendency_3h": 2.2,
+    "cloud_cover_pct": 34,
+    "surface_pressure_hpa": 1011.7,
+    "pressure_tendency_3h": -2.8,
     "thermal_stress": "OK"
   }
 }
