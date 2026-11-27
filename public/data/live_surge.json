@@ -829,8 +829,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 26.2,
-      "rh_mean_pct": 69.7,
+      "apparent_temp_max": 26.5,
+      "rh_mean_pct": 69.0,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1153,8 +1153,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 28.4,
-      "rh_mean_pct": 73.2,
+      "apparent_temp_max": 28.2,
+      "rh_mean_pct": 74.1,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
@@ -1477,8 +1477,8 @@
       "surge_multiplier": 1.0,
       "heatwave_surge_percent": 0.0,
       "humidity_heat_surge_percent": 0.0,
-      "apparent_temp_max": 29.7,
-      "rh_mean_pct": 74.8,
+      "apparent_temp_max": 29.5,
+      "rh_mean_pct": 74.3,
       "model_components": {
         "alert_beta": 0.0,
         "consecutive_multiplier": 1.0,
